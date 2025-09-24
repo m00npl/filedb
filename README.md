@@ -1,4 +1,4 @@
-# FilesDB
+# FileDB
 
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://hub.docker.com/r/moonplkr/filesdb)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -100,12 +100,12 @@ Response:
 
 ## 🛠 JavaScript SDK
 
-Download the SDK from your FilesDB instance at `/sdk/filesdb-sdk.js` or use it directly:
+Download the SDK from your FileDB instance at `/sdk/filesdb-sdk.js` or use it directly:
 
 ```javascript
-import FilesDB from './filesdb-sdk.js';
+import FileDB from './filesdb-sdk.js';
 
-const client = new FilesDB('http://localhost:3000');
+const client = new FileDB('http://localhost:3000');
 
 // Upload a file
 const result = await client.upload(file, {

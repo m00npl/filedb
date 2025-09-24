@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   filesdb:
-    build: .
+    image: moonplkr/filesdb:latest
     ports:
       - "3003:3003"
     environment:
@@ -31,19 +31,18 @@ services:
       - "traefik.http.routers.filesdb-main.rule=Host(`filedb.online`)"
       - "traefik.http.routers.filesdb-main.entrypoints=websecure"
       - "traefik.http.routers.filesdb-main.tls.certresolver=letsencrypt"
-      - "traefik.http.services.filesdb-main.loadbalancer.server.port=3003"
+      - "traefik.http.routers.filesdb-main.service=filesdb"
+      - "traefik.http.services.filesdb.loadbalancer.server.port=3003"
 
       # Upload subdomain without Cloudflare (direct to server)
       - "traefik.http.routers.filesdb-upload.rule=Host(`upload.filedb.online`)"
       - "traefik.http.routers.filesdb-upload.entrypoints=websecure"
       - "traefik.http.routers.filesdb-upload.tls.certresolver=letsencrypt"
-      - "traefik.http.services.filesdb-upload.loadbalancer.server.port=3003"
+      - "traefik.http.routers.filesdb-upload.service=filesdb"
 
       # Increase timeout for upload domain
       - "traefik.http.routers.filesdb-upload.middlewares=upload-timeout"
       - "traefik.http.middlewares.upload-timeout.buffering.maxRequestBodyBytes=0"
-      - "traefik.http.middlewares.upload-timeout.buffering.retryExpression=attempt() < 3"
-      - "traefik.http.services.filesdb-upload.loadbalancer.responseForwarding.flushInterval=100ms"
 
 networks:
   moon_golem_network:

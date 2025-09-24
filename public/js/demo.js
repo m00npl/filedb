@@ -1,10 +1,10 @@
-// Demo functionality for the FilesDB documentation site
+// Demo functionality for the FileDB documentation site
 
-class FilesDBDemo {
+class FileDBDemo {
   constructor() {
     // Use current host for demo
     const baseUrl = window.location.origin;
-    this.client = new FilesDB(baseUrl);
+    this.client = new FileDB(baseUrl);
     this.currentFileId = null;
     this.currentFileName = null;
     this.initializeEventListeners();
@@ -34,7 +34,7 @@ class FilesDBDemo {
 
     if (input.files && input.files[0]) {
       const file = input.files[0];
-      const validation = FilesDB.validateFile(file);
+      const validation = FileDB.validateFile(file);
 
       if (validation.valid) {
         uploadBtn.disabled = false;
@@ -63,7 +63,7 @@ class FilesDBDemo {
     this.showUploading();
 
     try {
-      const idempotencyKey = FilesDB.generateIdempotencyKey();
+      const idempotencyKey = FileDB.generateIdempotencyKey();
 
       // Upload the file
       const result = await this.client.upload(file, {
@@ -210,18 +210,18 @@ class FilesDBDemo {
   }
 }
 
-// Initialize demo when DOM is loaded and FilesDB is available
+// Initialize demo when DOM is loaded and FileDB is available
 document.addEventListener('DOMContentLoaded', () => {
-  // Wait for FilesDB to be available
-  if (typeof FilesDB !== 'undefined') {
-    new FilesDBDemo();
+  // Wait for FileDB to be available
+  if (typeof FileDB !== 'undefined') {
+    new FileDBDemo();
   } else {
-    // Retry after a short delay if FilesDB is not yet loaded
+    // Retry after a short delay if FileDB is not yet loaded
     setTimeout(() => {
-      if (typeof FilesDB !== 'undefined') {
-        new FilesDBDemo();
+      if (typeof FileDB !== 'undefined') {
+        new FileDBDemo();
       } else {
-        console.error('FilesDB SDK not loaded');
+        console.error('FileDB SDK not loaded');
       }
     }, 100);
   }

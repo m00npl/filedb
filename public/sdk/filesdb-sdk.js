@@ -1,9 +1,9 @@
 /**
- * FilesDB JavaScript SDK
- * A lightweight client for the FilesDB API
+ * FileDB JavaScript SDK
+ * A lightweight client for the FileDB API
  * Version: 1.0.0
  */
-class FilesDB {
+class FileDB {
   constructor(baseUrl = 'http://localhost:3000') {
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
     this.maxFileSize = 50 * 1024 * 1024; // 50MB
@@ -73,7 +73,7 @@ class FilesDB {
    */
   static validateFile(file) {
     const errors = [];
-    const sdk = new FilesDB(); // Create instance to access validation rules
+    const sdk = new FileDB(); // Create instance to access validation rules
 
     if (!file) {
       errors.push('No file provided');
@@ -105,7 +105,7 @@ class FilesDB {
   }
 
   /**
-   * Upload a file to FilesDB
+   * Upload a file to FileDB
    * @param {File} file - The file to upload
    * @param {Object} options - Upload options
    * @param {string} options.idempotencyKey - Optional idempotency key
@@ -113,7 +113,7 @@ class FilesDB {
    * @returns {Promise<Object>} Upload result with file_id
    */
   async upload(file, options = {}) {
-    const validation = FilesDB.validateFile(file);
+    const validation = FileDB.validateFile(file);
     if (!validation.valid) {
       throw new Error(validation.errors.join(', '));
     }
@@ -147,14 +147,14 @@ class FilesDB {
       return result;
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to FilesDB service');
+        throw new Error('Network error: Unable to connect to FileDB service');
       }
       throw error;
     }
   }
 
   /**
-   * Retrieve a file from FilesDB
+   * Retrieve a file from FileDB
    * @param {string} fileId - The file ID to retrieve
    * @returns {Promise<Blob>} The file as a Blob
    */
@@ -176,7 +176,7 @@ class FilesDB {
       return await response.blob();
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to FilesDB service');
+        throw new Error('Network error: Unable to connect to FileDB service');
       }
       throw error;
     }
@@ -205,7 +205,7 @@ class FilesDB {
       return await response.json();
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to FilesDB service');
+        throw new Error('Network error: Unable to connect to FileDB service');
       }
       throw error;
     }
@@ -259,7 +259,7 @@ class FilesDB {
       return await response.json();
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to FilesDB service');
+        throw new Error('Network error: Unable to connect to FileDB service');
       }
       throw error;
     }
@@ -288,7 +288,7 @@ class FilesDB {
       return await response.json();
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to FilesDB service');
+        throw new Error('Network error: Unable to connect to FileDB service');
       }
       throw error;
     }
@@ -325,7 +325,7 @@ class FilesDB {
 
 // Export for both CommonJS and ES modules
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = FilesDB;
+  module.exports = FileDB;
 } else if (typeof window !== 'undefined') {
-  window.FilesDB = FilesDB;
+  window.FileDB = FileDB;
 }

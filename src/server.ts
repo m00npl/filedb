@@ -2,10 +2,28 @@ import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import { UploadService } from './services/upload';
 import { QuotaService } from './services/quota';
+import { StorageFactory } from './storage/storage-factory';
 
 const app = new Hono();
-const uploadService = new UploadService();
-const quotaService = new QuotaService();
+
+// Initialize services
+let uploadService: UploadService;
+let quotaService: QuotaService;
+
+async function initializeServices() {
+  console.log('🔧 Initializing FileDB services...');
+
+  uploadService = new UploadService();
+  await uploadService.initialize();
+
+  const storage = await StorageFactory.createStorage();
+  quotaService = new QuotaService(storage);
+
+  console.log('✅ FileDB services initialized');
+}
+
+// Initialize services on startup
+await initializeServices();
 
 // Serve static files (documentation site)
 app.use('/*', serveStatic({ root: './public' }));
@@ -14,6 +32,7 @@ app.post('/files', async (c) => {
   try {
     const formData = await c.req.formData();
     const file = formData.get('file') as File;
+    const owner = formData.get('owner') as string; // Optional owner annotation
     const idempotencyKey = c.req.header('Idempotency-Key') || crypto.randomUUID();
     const btlDays = parseInt(c.req.header('BTL-Days') || '7');
 
@@ -30,7 +49,9 @@ app.post('/files', async (c) => {
       file.type,
       idempotencyKey,
       userId,
-      btlDays
+      btlDays,
+      owner || undefined,
+      c.req
     );
 
     if (!result.success) {
@@ -43,6 +64,55 @@ app.post('/files', async (c) => {
     });
   } catch (error) {
     console.error('Upload error:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+app.get('/files/by-owner/:owner', async (c) => {
+  try {
+    const owner = c.req.param('owner');
+    const files = await uploadService.getFilesByOwner(owner);
+
+    return c.json({
+      owner,
+      count: files.length,
+      files: files.map(f => ({
+        file_id: f.file_id,
+        original_filename: f.original_filename,
+        content_type: f.content_type,
+        file_extension: f.file_extension,
+        total_size: f.total_size,
+        created_at: f.created_at,
+        owner: f.owner
+      }))
+    });
+  } catch (error) {
+    console.error('Files by owner error:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+// Alternative endpoint to bypass CDN cache
+app.get('/api/files/owner/:owner', async (c) => {
+  try {
+    const owner = c.req.param('owner');
+    const files = await uploadService.getFilesByOwner(owner);
+
+    return c.json({
+      owner,
+      count: files.length,
+      files: files.map(f => ({
+        file_id: f.file_id,
+        original_filename: f.original_filename,
+        content_type: f.content_type,
+        file_extension: f.file_extension,
+        total_size: f.total_size,
+        created_at: f.created_at,
+        owner: f.owner
+      }))
+    });
+  } catch (error) {
+    console.error('Files by owner error:', error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
@@ -87,6 +157,9 @@ app.get('/files/:file_id/info', async (c) => {
 
     const { metadata } = result;
 
+    // Get entity keys if available
+    const entityKeys = await uploadService.getFileEntityKeys(file_id);
+
     return c.json({
       file_id: metadata!.file_id,
       original_filename: metadata!.original_filename,
@@ -97,10 +170,36 @@ app.get('/files/:file_id/info', async (c) => {
       checksum: metadata!.checksum,
       created_at: metadata!.created_at,
       btl_days: metadata!.btl_days,
-      expires_at: new Date(metadata!.created_at.getTime() + metadata!.btl_days * 24 * 60 * 60 * 1000)
+      expires_at: new Date(metadata!.created_at.getTime() + metadata!.btl_days * 24 * 60 * 60 * 1000),
+      owner: metadata!.owner,
+      // Blockchain entity information
+      metadata_entity_key: entityKeys.metadata_key,
+      chunk_entity_keys: entityKeys.chunk_keys,
+      total_blockchain_entities: (entityKeys.metadata_key ? 1 : 0) + entityKeys.chunk_keys.length
     });
   } catch (error) {
     console.error('File info error:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+app.get('/files/:file_id/entities', async (c) => {
+  try {
+    const file_id = c.req.param('file_id');
+    const entityKeys = await uploadService.getFileEntityKeys(file_id);
+
+    if (!entityKeys.metadata_key && entityKeys.chunk_keys.length === 0) {
+      return c.json({ error: 'File not found or no blockchain entities available' }, 404);
+    }
+
+    return c.json({
+      file_id,
+      metadata_entity_key: entityKeys.metadata_key,
+      chunk_entity_keys: entityKeys.chunk_keys,
+      total_entities: (entityKeys.metadata_key ? 1 : 0) + entityKeys.chunk_keys.length
+    });
+  } catch (error) {
+    console.error('File entities error:', error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
@@ -176,14 +275,107 @@ app.get('/status/:idempotency_key', async (c) => {
       return c.json({ error: 'Upload session not found' }, 404);
     }
 
+    // Calculate timing information
+    const now = new Date();
+    const elapsedMs = now.getTime() - session.started_at.getTime();
+    const elapsedSeconds = Math.round(elapsedMs / 1000);
+
+    let estimatedRemainingSeconds: number | null = null;
+    if (session.chunks_uploaded_to_blockchain > 0) {
+      const avgTimePerChunk = elapsedMs / session.chunks_uploaded_to_blockchain;
+      const remainingChunks = session.total_chunks - session.chunks_uploaded_to_blockchain;
+      estimatedRemainingSeconds = Math.round((avgTimePerChunk * remainingChunks) / 1000);
+    }
+
+    const progress = {
+      chunks_uploaded: session.chunks_uploaded_to_blockchain,
+      total_chunks: session.total_chunks,
+      percentage: Math.round((session.chunks_uploaded_to_blockchain / session.total_chunks) * 100),
+      remaining_chunks: session.total_chunks - session.chunks_uploaded_to_blockchain,
+      elapsed_seconds: elapsedSeconds,
+      estimated_remaining_seconds: estimatedRemainingSeconds,
+      last_chunk_uploaded_at: session.last_chunk_uploaded_at?.toISOString()
+    };
+
     return c.json({
       file_id: session.file_id,
+      status: session.status,
       completed: session.completed,
+      progress,
+      // Legacy fields for backward compatibility
       chunks_received: session.chunks_received.size,
-      total_chunks: session.metadata.chunk_count
+      total_chunks: session.total_chunks,
+      chunks_uploaded_to_blockchain: session.chunks_uploaded_to_blockchain,
+      progress_percentage: progress.percentage,
+      error: session.error,
+      // Additional metadata
+      file_info: {
+        original_filename: session.metadata.original_filename,
+        file_size: session.metadata.total_size,
+        content_type: session.metadata.content_type,
+        owner: session.metadata.owner
+      }
     });
   } catch (error) {
     console.error('Status error:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+app.get('/files/:file_id/status', async (c) => {
+  try {
+    const file_id = c.req.param('file_id');
+
+    // Find session by file_id
+    const session = await uploadService.getUploadStatusByFileId(file_id);
+
+    if (!session) {
+      return c.json({ error: 'Upload session not found' }, 404);
+    }
+
+    // Calculate timing information
+    const now = new Date();
+    const elapsedMs = now.getTime() - session.started_at.getTime();
+    const elapsedSeconds = Math.round(elapsedMs / 1000);
+
+    let estimatedRemainingSeconds: number | null = null;
+    if (session.chunks_uploaded_to_blockchain > 0) {
+      const avgTimePerChunk = elapsedMs / session.chunks_uploaded_to_blockchain;
+      const remainingChunks = session.total_chunks - session.chunks_uploaded_to_blockchain;
+      estimatedRemainingSeconds = Math.round((avgTimePerChunk * remainingChunks) / 1000);
+    }
+
+    const progress = {
+      chunks_uploaded: session.chunks_uploaded_to_blockchain,
+      total_chunks: session.total_chunks,
+      percentage: Math.round((session.chunks_uploaded_to_blockchain / session.total_chunks) * 100),
+      remaining_chunks: session.total_chunks - session.chunks_uploaded_to_blockchain,
+      elapsed_seconds: elapsedSeconds,
+      estimated_remaining_seconds: estimatedRemainingSeconds,
+      last_chunk_uploaded_at: session.last_chunk_uploaded_at?.toISOString()
+    };
+
+    return c.json({
+      file_id: session.file_id,
+      status: session.status,
+      completed: session.completed,
+      progress,
+      // Legacy fields for backward compatibility
+      chunks_received: session.chunks_received.size,
+      total_chunks: session.total_chunks,
+      chunks_uploaded_to_blockchain: session.chunks_uploaded_to_blockchain,
+      progress_percentage: progress.percentage,
+      error: session.error,
+      // Additional metadata
+      file_info: {
+        original_filename: session.metadata.original_filename,
+        file_size: session.metadata.total_size,
+        content_type: session.metadata.content_type,
+        owner: session.metadata.owner
+      }
+    });
+  } catch (error) {
+    console.error('File status error:', error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
@@ -199,4 +391,5 @@ console.log(`🚀 Files DB service starting on port ${port}`);
 export default {
   port,
   fetch: app.fetch,
+  idleTimeout: Math.min(parseInt(process.env.BLOCKCHAIN_TIMEOUT || '120000') / 1000, 255), // Max 255 seconds for Bun
 };

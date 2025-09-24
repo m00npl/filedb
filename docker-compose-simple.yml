@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   filesdb:
-    build: .
+    image: moonplkr/filesdb:latest
     ports:
       - "3003:3003"
     environment:

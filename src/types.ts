@@ -6,6 +6,7 @@ export interface ChunkEntity {
   checksum: string;
   created_at: Date;
   expiration_block: number;
+  entity_key?: string; // Golem DB entity key
 }
 
 export interface FileMetadata {
@@ -19,6 +20,14 @@ export interface FileMetadata {
   created_at: Date;
   expiration_block: number;
   btl_days: number;
+  entity_key?: string; // Golem DB entity key
+  owner?: string; // Custom owner annotation
+}
+
+export enum UploadStatus {
+  UPLOADING = 'uploading',
+  COMPLETED = 'completed',
+  FAILED = 'failed'
 }
 
 export interface UploadSession {
@@ -27,6 +36,12 @@ export interface UploadSession {
   metadata: FileMetadata;
   chunks_received: Set<number>;
   completed: boolean;
+  status: UploadStatus;
+  error?: string;
+  chunks_uploaded_to_blockchain: number;
+  total_chunks: number;
+  started_at: Date;
+  last_chunk_uploaded_at?: Date;
 }
 
 export interface QuotaInfo {
@@ -38,11 +53,13 @@ export interface QuotaInfo {
 
 export const CONFIG = {
   MAX_FILE_SIZE: 50 * 1024 * 1024, // 50 MB
-  CHUNK_SIZE: 64 * 1024, // 64 KB per chunk
-  DEFAULT_BTL_DAYS: 7,
+  CHUNK_SIZE: parseInt(process.env.CHUNK_SIZE || '102400'), // 100 KB
+  DEFAULT_BTL_DAYS: parseInt(process.env.DEFAULT_BTL_DAYS || '7'),
   FREE_TIER_MAX_BYTES: 500 * 1024 * 1024, // 500 MB
   FREE_TIER_MAX_UPLOADS_PER_DAY: 50,
   BLOCKS_PER_DAY: 2880, // Golem DB block timing
+  STORAGE_MODE: process.env.STORAGE_MODE || 'memory',
+  UNLIMITED_API_KEY: process.env.UNLIMITED_API_KEY,
   ALLOWED_FILE_TYPES: [
     // Documents
     'application/pdf',
