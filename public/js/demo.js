@@ -1,4 +1,4 @@
-// Demo functionality for the FileDB documentation site
+// Demo functionality for the File DB documentation site
 
 class FileDBDemo {
   constructor() {
@@ -78,7 +78,7 @@ class FileDBDemo {
       const fileInfo = await this.client.getInfo(result.file_id);
 
       // Calculate chunk count (approximate)
-      const chunkSize = 64 * 1024; // 64KB chunks
+      const chunkSize = 16 * 1024; // 16KB chunks
       const chunkCount = Math.ceil(file.size / chunkSize);
 
       this.showSuccess({

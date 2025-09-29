@@ -14,6 +14,8 @@ export interface IStorage {
   updateUserQuota?(userAddress: string, addedBytes: number): Promise<void>;
   getFilesByOwner?(owner: string): Promise<any[]>;
   getFileEntityKeys?(file_id: string): Promise<{ metadata_key?: string; chunk_keys: string[] }>;
+  storeBatch?(metadata: any, chunks: any[]): Promise<{ metadata_key: string; chunk_keys: string[] }>;
+  storeBatchChunks?(chunks: any[]): Promise<string[]>;
 }
 
 export class StorageFactory {

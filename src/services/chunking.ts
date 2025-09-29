@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { gzipSync, gunzipSync } from 'zlib';
 import { CONFIG, ChunkEntity, FileMetadata } from '../types';
 
 export class ChunkingService {
@@ -15,15 +16,24 @@ export class ChunkingService {
     const chunkSize = CONFIG.CHUNK_SIZE;
 
     for (let i = 0; i < fileBuffer.length; i += chunkSize) {
-      const chunkData = fileBuffer.subarray(i, i + chunkSize);
+      const rawChunkData = fileBuffer.subarray(i, i + chunkSize);
       const chunk_index = Math.floor(i / chunkSize);
+
+      // Compress chunk data
+      const compressedData = gzipSync(rawChunkData);
+
+      // Log compression ratio for debugging
+      const compressionRatio = ((rawChunkData.length - compressedData.length) / rawChunkData.length * 100).toFixed(1);
+      console.log(`📦 Chunk ${chunk_index}: ${rawChunkData.length}B → ${compressedData.length}B (${compressionRatio}% compression)`);
 
       const chunk: ChunkEntity = {
         id: crypto.randomUUID(),
         file_id,
         chunk_index,
-        data: chunkData,
-        checksum: this.calculateChecksum(chunkData),
+        data: compressedData,
+        original_size: rawChunkData.length,
+        compressed_size: compressedData.length,
+        checksum: this.calculateChecksum(rawChunkData), // Checksum of original data
         created_at: new Date(),
         expiration_block
       };
@@ -67,7 +77,13 @@ export class ChunkingService {
   static reassembleFile(chunks: ChunkEntity[]): Buffer {
     chunks.sort((a, b) => a.chunk_index - b.chunk_index);
 
-    const buffers = chunks.map(chunk => chunk.data);
+    const buffers = chunks.map(chunk => {
+      // Decompress chunk data
+      const decompressedData = gunzipSync(chunk.data);
+      console.log(`📤 Decompressing chunk ${chunk.chunk_index}: ${chunk.data.length}B → ${decompressedData.length}B`);
+      return decompressedData;
+    });
+
     return Buffer.concat(buffers);
   }
 

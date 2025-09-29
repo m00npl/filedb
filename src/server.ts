@@ -3,15 +3,38 @@ import { serveStatic } from 'hono/bun';
 import { UploadService } from './services/upload';
 import { QuotaService } from './services/quota';
 import { StorageFactory } from './storage/storage-factory';
+import {
+  errorHandlingMiddleware,
+  notFoundHandler,
+  timeoutMiddleware
+} from './middleware/error-handling';
+import {
+  inputValidationMiddleware,
+  fileUploadValidationMiddleware
+} from './middleware/validation';
+import {
+  jwtAuthMiddleware,
+  optionalJwtAuthMiddleware,
+  apiKeyFallbackMiddleware,
+  requirePermission,
+  PERMISSIONS
+} from './middleware/auth';
+import authRoutes from './routes/auth';
 
 const app = new Hono();
+
+// Apply global middleware
+app.use('*', timeoutMiddleware(300000)); // 5 minute timeout
+app.use('*', inputValidationMiddleware);
+app.use('*', fileUploadValidationMiddleware);
+app.use('*', apiKeyFallbackMiddleware); // API key fallback for backward compatibility
 
 // Initialize services
 let uploadService: UploadService;
 let quotaService: QuotaService;
 
 async function initializeServices() {
-  console.log('🔧 Initializing FileDB services...');
+  console.log('🔧 Initializing File DB services...');
 
   uploadService = new UploadService();
   await uploadService.initialize();
@@ -19,16 +42,19 @@ async function initializeServices() {
   const storage = await StorageFactory.createStorage();
   quotaService = new QuotaService(storage);
 
-  console.log('✅ FileDB services initialized');
+  console.log('✅ File DB services initialized');
 }
 
 // Initialize services on startup
 await initializeServices();
 
+// Mount authentication routes (public routes)
+app.route('/auth', authRoutes);
+
 // Serve static files (documentation site)
 app.use('/*', serveStatic({ root: './public' }));
 
-app.post('/files', async (c) => {
+app.post('/files', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.UPLOAD_FILES), async (c) => {
   try {
     const formData = await c.req.formData();
     const file = formData.get('file') as File;
@@ -68,7 +94,7 @@ app.post('/files', async (c) => {
   }
 });
 
-app.get('/files/by-owner/:owner', async (c) => {
+app.get('/files/by-owner/:owner', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.LIST_FILES), async (c) => {
   try {
     const owner = c.req.param('owner');
     const files = await uploadService.getFilesByOwner(owner);
@@ -93,7 +119,7 @@ app.get('/files/by-owner/:owner', async (c) => {
 });
 
 // Alternative endpoint to bypass CDN cache
-app.get('/api/files/owner/:owner', async (c) => {
+app.get('/api/files/owner/:owner', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.LIST_FILES), async (c) => {
   try {
     const owner = c.req.param('owner');
     const files = await uploadService.getFilesByOwner(owner);
@@ -117,7 +143,7 @@ app.get('/api/files/owner/:owner', async (c) => {
   }
 });
 
-app.get('/files/:file_id', async (c) => {
+app.get('/files/:file_id', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.DOWNLOAD_FILES), async (c) => {
   try {
     const file_id = c.req.param('file_id');
 
@@ -146,7 +172,7 @@ app.get('/files/:file_id', async (c) => {
   }
 });
 
-app.get('/files/:file_id/info', async (c) => {
+app.get('/files/:file_id/info', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.LIST_FILES), async (c) => {
   try {
     const file_id = c.req.param('file_id');
     const result = await uploadService.getFile(file_id);
@@ -183,7 +209,7 @@ app.get('/files/:file_id/info', async (c) => {
   }
 });
 
-app.get('/files/:file_id/entities', async (c) => {
+app.get('/files/:file_id/entities', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.LIST_FILES), async (c) => {
   try {
     const file_id = c.req.param('file_id');
     const entityKeys = await uploadService.getFileEntityKeys(file_id);
@@ -204,7 +230,7 @@ app.get('/files/:file_id/entities', async (c) => {
   }
 });
 
-app.get('/files/by-extension/:extension', async (c) => {
+app.get('/files/by-extension/:extension', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.LIST_FILES), async (c) => {
   try {
     const extension = c.req.param('extension');
     const files = await uploadService.getFilesByExtension(extension);
@@ -226,7 +252,7 @@ app.get('/files/by-extension/:extension', async (c) => {
   }
 });
 
-app.get('/files/by-type/:content_type', async (c) => {
+app.get('/files/by-type/:content_type', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.LIST_FILES), async (c) => {
   try {
     const contentType = decodeURIComponent(c.req.param('content_type'));
     const files = await uploadService.getFilesByContentType(contentType);
@@ -248,7 +274,7 @@ app.get('/files/by-type/:content_type', async (c) => {
   }
 });
 
-app.get('/quota', async (c) => {
+app.get('/quota', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.VIEW_QUOTA), async (c) => {
   try {
     const userId = quotaService.getUserId(c.req);
     const quota = await quotaService.getQuotaInfo(userId);
@@ -266,7 +292,7 @@ app.get('/quota', async (c) => {
   }
 });
 
-app.get('/status/:idempotency_key', async (c) => {
+app.get('/status/:idempotency_key', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.LIST_FILES), async (c) => {
   try {
     const idempotencyKey = c.req.param('idempotency_key');
     const session = await uploadService.getUploadStatus(idempotencyKey);
@@ -322,7 +348,7 @@ app.get('/status/:idempotency_key', async (c) => {
   }
 });
 
-app.get('/files/:file_id/status', async (c) => {
+app.get('/files/:file_id/status', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.LIST_FILES), async (c) => {
   try {
     const file_id = c.req.param('file_id');
 
@@ -380,13 +406,43 @@ app.get('/files/:file_id/status', async (c) => {
   }
 });
 
-app.get('/health', (c) => {
-  return c.json({ status: 'healthy', timestamp: new Date().toISOString() });
+app.get('/health', async (c) => {
+  const health = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    services: {
+      database: 'connected',
+      redis: 'unknown'
+    }
+  };
+
+  // Check Redis connectivity
+  try {
+    const sessionStore = (uploadService as any).sessionStore;
+    if (sessionStore && sessionStore.isRedisConnected()) {
+      await sessionStore.ping();
+      health.services.redis = 'connected';
+    } else {
+      health.services.redis = 'disconnected';
+    }
+  } catch (error) {
+    health.services.redis = 'error';
+    health.status = 'degraded';
+  }
+
+  const statusCode = health.status === 'healthy' ? 200 : 503;
+  return c.json(health, statusCode);
 });
+
+// Apply error handling middleware (must be last)
+app.use('*', errorHandlingMiddleware);
+
+// 404 handler for unmatched routes
+app.notFound(notFoundHandler);
 
 const port = parseInt(process.env.PORT || '3000');
 
-console.log(`🚀 Files DB service starting on port ${port}`);
+console.log(`🚀 File DB service starting on port ${port}`);
 
 export default {
   port,

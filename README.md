@@ -1,4 +1,4 @@
-# FileDB
+# File DB
 
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://hub.docker.com/r/moonplkr/filesdb)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -9,7 +9,7 @@ File chunking middleware for Golem DB that splits large files into safe-sized ch
 ## ✨ Features
 
 - **Universal File Support** - Upload any file type: documents, images, videos, archives, code files
-- **Large File Handling** - Support for files up to 50MB with automatic 64KB chunking
+- **Large File Handling** - Support for files up to 50MB with automatic 32KB chunking
 - **Data Integrity** - SHA-256 checksums ensure perfect file reconstruction
 - **Idempotent Uploads** - Resume failed uploads and prevent duplicates
 - **TTL Management** - Configurable file expiration (default 7 days)
@@ -100,7 +100,7 @@ Response:
 
 ## 🛠 JavaScript SDK
 
-Download the SDK from your FileDB instance at `/sdk/filesdb-sdk.js` or use it directly:
+Download the SDK from your File DB instance at `/sdk/filesdb-sdk.js` or use it directly:
 
 ```javascript
 import FileDB from './filesdb-sdk.js';
@@ -293,8 +293,8 @@ Environment variables for customization:
 
 ```env
 # Adjust in docker-compose.yml or when running
-MAX_FILE_SIZE=52428800     # 50MB in bytes
-CHUNK_SIZE=65536          # 64KB in bytes
+MAX_FILE_SIZE=10485760     # 10MB in bytes
+CHUNK_SIZE=32768          # 32KB in bytes
 DEFAULT_TTL_DAYS=7        # Default expiration
 FREE_TIER_STORAGE=524288000  # 500MB in bytes
 FREE_TIER_UPLOADS=50      # Daily upload limit

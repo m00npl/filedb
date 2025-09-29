@@ -23,3 +23,34 @@ yarn-error.log*
 *~
 test/
 .github/
+
+# Test files and temporary data
+test-*.txt
+test-*.bin
+test-*.json
+downloaded-*
+big-test.txt
+small*.txt
+*.txt
+*.bin
+
+# Development files
+.env.local
+.env.development
+
+# Claude Flow and AI tools
+.claude/
+.swarm/
+.hive-mind/
+memory/
+coordination/
+*.db
+*.db-journal
+*.sqlite
+
+# Documentation (not needed in container)
+README.md
+docs/
+
+# Scripts (not needed in container)
+test-*.sh

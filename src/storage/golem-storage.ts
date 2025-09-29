@@ -16,11 +16,40 @@ export class GolemDBStorage {
       const rpcUrl = process.env.GOLEM_RPC_URL || 'https://kaolin.holesky.golem-base.io/rpc';
       const wsUrl = process.env.GOLEM_WS_URL || 'wss://kaolin.holesky.golem-base.io/ws';
 
-      // Always create read-only client
-      this.roClient = createROClient(chainId, rpcUrl, wsUrl);
+      // Connection pooling configuration for better performance
+      const connectionConfig = {
+        timeout: parseInt(process.env.BLOCKCHAIN_TIMEOUT || '300000'), // 5 minutes
+        keepAlive: true,
+        maxConnections: 10,
+        retryAttempts: 3
+      };
+
+      console.log(`🔗 Initializing Golem DB clients with optimized connections (timeout: ${connectionConfig.timeout}ms)`);
+
+      // Always create read-only client with connection pooling
+      this.roClient = createROClient(chainId, rpcUrl, wsUrl, connectionConfig);
 
       // Create write client if private key available
-      const privateKeyHex = process.env.GOLEM_PRIVATE_KEY;
+      let privateKeyHex = process.env.GOLEM_PRIVATE_KEY;
+
+      // Try to read from Docker secrets if env variable not available
+      if (!privateKeyHex) {
+        try {
+          const fs = require('fs');
+          const secretPath = '/run/secrets/golem_private_key';
+          console.log(`🔍 Checking for Docker secret at: ${secretPath}`);
+          if (fs.existsSync(secretPath)) {
+            privateKeyHex = fs.readFileSync(secretPath, 'utf8').trim();
+            console.log('🔐 Loaded private key from Docker secrets');
+          } else {
+            console.log('💡 Docker secret file does not exist');
+          }
+        } catch (error) {
+          console.log('💡 Error reading Docker secrets:', error.message);
+        }
+      } else {
+        console.log('🔑 Using private key from environment variable');
+      }
       if (privateKeyHex) {
         const hexKey = privateKeyHex.replace('0x', '');
         const accountData = {
@@ -28,11 +57,12 @@ export class GolemDBStorage {
           data: Buffer.from(hexKey, 'hex')
         };
 
-        // Try to create client - Golem SDK might not support timeout parameter
+        // Try to create client with connection pooling - fallback if config not supported
         try {
-          this.writeClient = await createClient(chainId, accountData, rpcUrl, wsUrl);
+          this.writeClient = await createClient(chainId, accountData, rpcUrl, wsUrl, connectionConfig);
+          console.log('🚀 Write client created with connection pooling');
         } catch (error) {
-          console.warn('⚠️  Standard client creation failed, trying without options:', error);
+          console.warn('⚠️  Connection pooling not supported, using standard client:', error.message);
           this.writeClient = await createClient(chainId, accountData, rpcUrl, wsUrl);
         }
 
@@ -89,6 +119,158 @@ export class GolemDBStorage {
     } catch (error) {
       console.error('❌ Failed to store chunk:', error);
       throw new Error(`Failed to store chunk: ${error}`);
+    }
+  }
+
+  async storeBatchChunks(chunks: ChunkEntity[]): Promise<string[]> {
+    await this.initialize();
+
+    if (!this.writeClient) {
+      throw new Error('Write operations not available - no private key configured');
+    }
+
+    try {
+      const currentBlock = await this.getCurrentBlock();
+      const entities: any[] = [];
+
+      // Add chunk entities only
+      for (const chunk of chunks) {
+        const chunkBtl = Math.max(chunk.expiration_block - Number(currentBlock), 1);
+
+        entities.push({
+          data: chunk.data,
+          btl: chunkBtl,
+          stringAnnotations: [
+            { key: 'type', value: 'chunk' },
+            { key: 'file_id', value: chunk.file_id },
+            { key: 'chunk_index', value: chunk.chunk_index.toString() },
+            { key: 'checksum', value: chunk.checksum },
+            { key: 'created_at', value: chunk.created_at.toISOString() }
+          ],
+          numericAnnotations: [
+            { key: 'chunk_size', value: chunk.data.length },
+            { key: 'expiration_block', value: chunk.expiration_block }
+          ]
+        });
+      }
+
+      console.log(`🚀 Batch storing ${entities.length} chunk entities for file ${chunks[0]?.file_id}`);
+
+      const receipts = await this.retryBlockchainOperation(
+        () => this.writeClient.createEntities(entities),
+        `batch store ${chunks.length} chunks`,
+        5, // More retries for batch operations
+        2000 // Longer initial delay
+      );
+
+      // Extract entity keys
+      const chunk_keys = receipts.map(receipt => receipt.entityKey);
+
+      // Update entity keys in objects
+      chunks.forEach((chunk, index) => {
+        chunk.entity_key = chunk_keys[index];
+      });
+
+      console.log(`✅ Batch stored ${chunks.length} chunks in single transaction`);
+
+      return chunk_keys;
+    } catch (error) {
+      console.error('❌ Failed to batch store chunks:', error);
+      throw new Error(`Failed to batch store chunks: ${error}`);
+    }
+  }
+
+  async storeBatch(metadata: FileMetadata, chunks: ChunkEntity[]): Promise<{ metadata_key: string; chunk_keys: string[] }> {
+    await this.initialize();
+
+    if (!this.writeClient) {
+      throw new Error('Write operations not available - no private key configured');
+    }
+
+    try {
+      const currentBlock = await this.getCurrentBlock();
+      const entities: any[] = [];
+
+      // Add metadata entity
+      const metadataBtl = Math.max(metadata.expiration_block - Number(currentBlock), 1);
+      const metadataJson = JSON.stringify({
+        file_id: metadata.file_id,
+        original_filename: metadata.original_filename,
+        content_type: metadata.content_type,
+        file_extension: metadata.file_extension,
+        total_size: metadata.total_size,
+        chunk_count: metadata.chunk_count,
+        checksum: metadata.checksum,
+        created_at: metadata.created_at.toISOString(),
+        btl_days: metadata.btl_days
+      });
+
+      entities.push({
+        data: Buffer.from(metadataJson, 'utf-8'),
+        btl: metadataBtl,
+        stringAnnotations: [
+          { key: 'type', value: 'metadata' },
+          { key: 'file_id', value: metadata.file_id },
+          { key: 'original_filename', value: metadata.original_filename },
+          { key: 'content_type', value: metadata.content_type },
+          { key: 'file_extension', value: metadata.file_extension },
+          { key: 'checksum', value: metadata.checksum },
+          ...(metadata.owner ? [{ key: 'owner', value: metadata.owner }] : [])
+        ],
+        numericAnnotations: [
+          { key: 'total_size', value: metadata.total_size },
+          { key: 'chunk_count', value: metadata.chunk_count },
+          { key: 'expiration_block', value: metadata.expiration_block },
+          { key: 'btl_days', value: metadata.btl_days }
+        ]
+      });
+
+      // Add chunk entities
+      for (const chunk of chunks) {
+        const chunkBtl = Math.max(chunk.expiration_block - Number(currentBlock), 1);
+
+        entities.push({
+          data: chunk.data,
+          btl: chunkBtl,
+          stringAnnotations: [
+            { key: 'type', value: 'chunk' },
+            { key: 'file_id', value: chunk.file_id },
+            { key: 'chunk_index', value: chunk.chunk_index.toString() },
+            { key: 'checksum', value: chunk.checksum },
+            { key: 'created_at', value: chunk.created_at.toISOString() }
+          ],
+          numericAnnotations: [
+            { key: 'chunk_size', value: chunk.data.length },
+            { key: 'expiration_block', value: chunk.expiration_block }
+          ]
+        });
+      }
+
+      console.log(`🚀 Batch storing ${entities.length} entities (1 metadata + ${chunks.length} chunks) for file ${metadata.file_id}`);
+
+      const receipts = await this.retryBlockchainOperation(
+        () => this.writeClient.createEntities(entities),
+        `batch store file ${metadata.file_id}`,
+        5, // More retries for batch operations
+        2000 // Longer initial delay
+      );
+
+      // Extract entity keys
+      const metadata_key = receipts[0].entityKey;
+      const chunk_keys = receipts.slice(1).map(receipt => receipt.entityKey);
+
+      // Update entity keys in objects
+      metadata.entity_key = metadata_key;
+      chunks.forEach((chunk, index) => {
+        chunk.entity_key = chunk_keys[index];
+      });
+
+      console.log(`✅ Batch stored file ${metadata.file_id} with ${chunks.length} chunks in single transaction`);
+
+      return { metadata_key, chunk_keys };
+    } catch (error) {
+      console.error('❌ Failed to batch store:', error);
+      throw new Error(`Failed to batch store: ${error}`);
     }
   }
 
@@ -475,7 +657,7 @@ export class GolemDBStorage {
 
       const allEntities = await this.roClient.getEntitiesOfOwner(ownerAddress);
       let metadata_key: string | undefined = undefined;
-      const chunk_keys: string[] = [];
+      const chunksWithIndex: { key: string; index: number }[] = [];
 
       for (const entityKey of allEntities) {
         const metadata = await this.roClient.getEntityMetaData(entityKey);
@@ -500,15 +682,14 @@ export class GolemDBStorage {
             ann => ann.key === 'chunk_index'
           );
           const chunkIndex = chunkIndexAnnotation ? parseInt(chunkIndexAnnotation.value) : -1;
-          chunk_keys.push(entityKey);
+          chunksWithIndex.push({ key: entityKey, index: chunkIndex });
         }
       }
 
-      // Sort chunk keys by chunk index
-      chunk_keys.sort((a, b) => {
-        // We need to get metadata to sort properly, but for now just return them
-        return 0;
-      });
+      // Sort chunks by index and extract keys
+      const chunk_keys = chunksWithIndex
+        .sort((a, b) => a.index - b.index)
+        .map(chunk => chunk.key);
 
       return { metadata_key, chunk_keys };
     } catch (error) {

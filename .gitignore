@@ -65,3 +65,48 @@ temp/
 
 # Production data
 data/
+
+# Security - Private keys and secrets (NEVER commit these!)
+secrets/
+*.pem
+*.key
+*_private_key*
+.env.production
+
+# Test files
+test-*.txt
+test-*.bin
+test-*.json
+downloaded-*
+*.txt
+*.bin
+big-test.txt
+small*.txt
+
+# Redis data
+redis_data/
+
+# Claude Flow generated files
+.claude/settings.local.json
+.mcp.json
+claude-flow.config.json
+.swarm/
+.hive-mind/
+memory/claude-flow-data.json
+memory/sessions/*
+!memory/sessions/README.md
+memory/agents/*
+!memory/agents/README.md
+coordination/memory_bank/*
+coordination/subtasks/*
+coordination/orchestration/*
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+claude-flow
+claude-flow.bat
+claude-flow.ps1
+hive-mind-prompt-*.txt

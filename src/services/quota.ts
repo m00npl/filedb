@@ -1,12 +1,27 @@
 import { CONFIG, QuotaInfo } from '../types';
 import { IStorage } from '../storage/storage-factory';
+import { RedisSessionStore } from './redis-session-store';
 
 export class QuotaService {
   private userUsage: Map<string, QuotaInfo> = new Map();
   private storage: IStorage | null = null;
+  private redisCache: RedisSessionStore;
+  private cacheInitialized = false;
 
   constructor(storage?: IStorage) {
     this.storage = storage || null;
+    this.redisCache = new RedisSessionStore();
+    this.initializeCache();
+  }
+
+  private async initializeCache(): Promise<void> {
+    try {
+      await this.redisCache.initialize();
+      this.cacheInitialized = true;
+      console.log('✅ Quota cache (Redis) initialized');
+    } catch (error) {
+      console.warn('⚠️ Quota cache unavailable, using in-memory fallback');
+    }
   }
 
   getUserId(request: any): string {
@@ -47,6 +62,16 @@ export class QuotaService {
     if (this.storage && this.storage.updateUserQuota) {
       // Use blockchain-based quota tracking
       await this.storage.updateUserQuota(userId, fileSize);
+
+      // Invalidate cache after update
+      if (this.cacheInitialized) {
+        try {
+          await this.redisCache.deleteSessionData(`quota:${userId}`);
+          console.log(`🗑️ Invalidated quota cache for user ${userId}`);
+        } catch (error) {
+          console.warn('Failed to invalidate quota cache:', error.message);
+        }
+      }
     } else {
       // Fallback to in-memory tracking
       const quota = await this.getUserQuota(userId);
@@ -57,16 +82,41 @@ export class QuotaService {
   }
 
   private async getUserQuota(userId: string): Promise<QuotaInfo> {
+    // Try Redis cache first (10 minute TTL)
+    if (this.cacheInitialized) {
+      try {
+        const cached = await this.redisCache.getSessionData(`quota:${userId}`);
+        if (cached) {
+          console.log(`📊 Quota cache hit for user ${userId}`);
+          return JSON.parse(cached);
+        }
+      } catch (error) {
+        console.warn('Redis quota cache read failed:', error.message);
+      }
+    }
+
     if (this.storage && this.storage.getUserQuota) {
       // Use blockchain-based quota tracking
       try {
         const blockchainQuota = await this.storage.getUserQuota(userId);
-        return {
+        const quota = {
           used_bytes: blockchainQuota.used_bytes,
           max_bytes: CONFIG.FREE_TIER_MAX_BYTES,
           uploads_today: blockchainQuota.uploads_today,
           max_uploads_per_day: CONFIG.FREE_TIER_MAX_UPLOADS_PER_DAY
         };
+
+        // Cache the result for 10 minutes
+        if (this.cacheInitialized) {
+          try {
+            await this.redisCache.storeSessionData(`quota:${userId}`, JSON.stringify(quota), 600);
+            console.log(`💾 Cached quota for user ${userId}`);
+          } catch (error) {
+            console.warn('Redis quota cache write failed:', error.message);
+          }
+        }
+
+        return quota;
       } catch (error) {
         console.warn('Failed to get blockchain quota, falling back to memory:', error);
       }

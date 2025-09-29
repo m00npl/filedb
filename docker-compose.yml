@@ -1,21 +1,37 @@
-version: '3.8'
-
 services:
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - moon_golem_network
+
   filesdb:
-    build: .
+    image: moonplkr/filesdb:latest
     ports:
       - "3003:3003"
+    env_file: .env.local
     environment:
       - NODE_ENV=production
       - PORT=3003
       - GOLEM_CHAIN_ID=60138453025
-      - GOLEM_PRIVATE_KEY=0x54b3dbb50f964c32e9a9942fe46c0697c0af855c60a818a3447ed063f7f9be67
       - GOLEM_RPC_URL=https://kaolin.holesky.golem-base.io/rpc
       - GOLEM_WS_URL=wss://kaolin.holesky.golem-base.io/ws
       - STORAGE_MODE=golemdb
       - BLOCKCHAIN_TIMEOUT=300000
+      - REDIS_URL=redis://redis:6379
+    secrets:
+      - golem_private_key
     volumes:
       - ./data:/usr/src/app/data
+    depends_on:
+      - redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
@@ -31,19 +47,28 @@ services:
       - "traefik.http.routers.filesdb-main.rule=Host(`filedb.online`)"
       - "traefik.http.routers.filesdb-main.entrypoints=websecure"
       - "traefik.http.routers.filesdb-main.tls.certresolver=letsencrypt"
-      - "traefik.http.services.filesdb-main.loadbalancer.server.port=3003"
+      - "traefik.http.routers.filesdb-main.service=filesdb-service"
 
       # Upload subdomain without Cloudflare (direct to server)
       - "traefik.http.routers.filesdb-upload.rule=Host(`upload.filedb.online`)"
       - "traefik.http.routers.filesdb-upload.entrypoints=websecure"
       - "traefik.http.routers.filesdb-upload.tls.certresolver=letsencrypt"
-      - "traefik.http.services.filesdb-upload.loadbalancer.server.port=3003"
+      - "traefik.http.routers.filesdb-upload.service=filesdb-service"
+
+      # Service definition
+      - "traefik.http.services.filesdb-service.loadbalancer.server.port=3003"
 
       # Increase timeout for upload domain
       - "traefik.http.routers.filesdb-upload.middlewares=upload-timeout"
       - "traefik.http.middlewares.upload-timeout.buffering.maxRequestBodyBytes=0"
-      - "traefik.http.middlewares.upload-timeout.buffering.retryExpression=attempt() < 3"
-      - "traefik.http.services.filesdb-upload.loadbalancer.responseForwarding.flushInterval=100ms"
+      - "traefik.http.services.filesdb-service.loadbalancer.responseForwarding.flushInterval=100ms"
+
+secrets:
+  golem_private_key:
+    file: ./secrets/golem_private_key.txt
+
+volumes:
+  redis_data:
 
 networks:
   moon_golem_network:

@@ -3,6 +3,8 @@ export interface ChunkEntity {
   file_id: string;
   chunk_index: number;
   data: Buffer;
+  original_size?: number; // Size before compression
+  compressed_size?: number; // Size after compression
   checksum: string;
   created_at: Date;
   expiration_block: number;
@@ -52,8 +54,8 @@ export interface QuotaInfo {
 }
 
 export const CONFIG = {
-  MAX_FILE_SIZE: 50 * 1024 * 1024, // 50 MB
-  CHUNK_SIZE: parseInt(process.env.CHUNK_SIZE || '102400'), // 100 KB
+  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10 MB
+  CHUNK_SIZE: parseInt(process.env.CHUNK_SIZE || '32768'), // 32 KB - optimized for blockchain
   DEFAULT_BTL_DAYS: parseInt(process.env.DEFAULT_BTL_DAYS || '7'),
   FREE_TIER_MAX_BYTES: 500 * 1024 * 1024, // 500 MB
   FREE_TIER_MAX_UPLOADS_PER_DAY: 50,

@@ -1,12 +1,14 @@
 /**
- * FileDB JavaScript SDK
- * A lightweight client for the FileDB API
+ * File DB JavaScript SDK
+ * A lightweight client for the File DB API
  * Version: 1.0.0
  */
 class FileDB {
-  constructor(baseUrl = 'http://localhost:3000') {
+  constructor(baseUrl = 'http://localhost:3000', options = {}) {
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
-    this.maxFileSize = 50 * 1024 * 1024; // 50MB
+    this.maxFileSize = 10 * 1024 * 1024; // 10MB
+    this.accessToken = options.accessToken || null;
+    this.apiKey = options.apiKey || null;
     this.allowedTypes = [
       // Documents
       'application/pdf',
@@ -97,6 +99,201 @@ class FileDB {
   }
 
   /**
+   * Set access token for authentication
+   * @param {string} token - JWT access token
+   */
+  setAccessToken(token) {
+    this.accessToken = token;
+  }
+
+  /**
+   * Set API key for authentication
+   * @param {string} apiKey - API key
+   */
+  setApiKey(apiKey) {
+    this.apiKey = apiKey;
+  }
+
+  /**
+   * Get authentication headers
+   * @returns {Object} Headers object with authentication
+   */
+  getAuthHeaders() {
+    const headers = {};
+
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    } else if (this.apiKey) {
+      headers['X-API-Key'] = this.apiKey;
+    }
+
+    return headers;
+  }
+
+  /**
+   * Register a new user
+   * @param {string} email - User email
+   * @param {string} password - User password
+   * @param {string} role - User role ('user' or 'admin')
+   * @returns {Promise<Object>} Registration result with tokens
+   */
+  async register(email, password, role = 'user') {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password, role })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Auto-set the access token
+      if (result.accessToken) {
+        this.setAccessToken(result.accessToken);
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to File DB service');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Login user
+   * @param {string} email - User email
+   * @param {string} password - User password
+   * @returns {Promise<Object>} Login result with tokens
+   */
+  async login(email, password) {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Auto-set the access token
+      if (result.accessToken) {
+        this.setAccessToken(result.accessToken);
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to File DB service');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get current user information
+   * @returns {Promise<Object>} User information
+   */
+  async getMe() {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/me`, {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to File DB service');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Refresh access token
+   * @param {string} refreshToken - Refresh token
+   * @returns {Promise<Object>} New access token
+   */
+  async refreshToken(refreshToken) {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refreshToken })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Auto-set the new access token
+      if (result.accessToken) {
+        this.setAccessToken(result.accessToken);
+      }
+
+      return result;
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to File DB service');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Logout user
+   * @returns {Promise<Object>} Logout result
+   */
+  async logout() {
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/logout`, {
+        method: 'POST',
+        headers: this.getAuthHeaders()
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Clear stored token
+      this.accessToken = null;
+
+      return result;
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to File DB service');
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Generate a unique idempotency key
    * @returns {string} UUID-like string
    */
@@ -105,7 +302,7 @@ class FileDB {
   }
 
   /**
-   * Upload a file to FileDB
+   * Upload a file to File DB
    * @param {File} file - The file to upload
    * @param {Object} options - Upload options
    * @param {string} options.idempotencyKey - Optional idempotency key
@@ -121,7 +318,7 @@ class FileDB {
     const formData = new FormData();
     formData.append('file', file);
 
-    const headers = {};
+    const headers = { ...this.getAuthHeaders() };
 
     if (options.idempotencyKey) {
       headers['Idempotency-Key'] = options.idempotencyKey;
@@ -147,14 +344,14 @@ class FileDB {
       return result;
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to FileDB service');
+        throw new Error('Network error: Unable to connect to File DB service');
       }
       throw error;
     }
   }
 
   /**
-   * Retrieve a file from FileDB
+   * Retrieve a file from File DB
    * @param {string} fileId - The file ID to retrieve
    * @returns {Promise<Blob>} The file as a Blob
    */
@@ -164,7 +361,9 @@ class FileDB {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/files/${fileId}`);
+      const response = await fetch(`${this.baseUrl}/files/${fileId}`, {
+        headers: this.getAuthHeaders()
+      });
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -176,7 +375,7 @@ class FileDB {
       return await response.blob();
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to FileDB service');
+        throw new Error('Network error: Unable to connect to File DB service');
       }
       throw error;
     }
@@ -193,7 +392,9 @@ class FileDB {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/files/${fileId}/info`);
+      const response = await fetch(`${this.baseUrl}/files/${fileId}/info`, {
+        headers: this.getAuthHeaders()
+      });
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -205,7 +406,7 @@ class FileDB {
       return await response.json();
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to FileDB service');
+        throw new Error('Network error: Unable to connect to File DB service');
       }
       throw error;
     }
@@ -250,7 +451,9 @@ class FileDB {
    */
   async getQuota() {
     try {
-      const response = await fetch(`${this.baseUrl}/quota`);
+      const response = await fetch(`${this.baseUrl}/quota`, {
+        headers: this.getAuthHeaders()
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -259,7 +462,7 @@ class FileDB {
       return await response.json();
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to FileDB service');
+        throw new Error('Network error: Unable to connect to File DB service');
       }
       throw error;
     }
@@ -276,7 +479,9 @@ class FileDB {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/status/${idempotencyKey}`);
+      const response = await fetch(`${this.baseUrl}/status/${idempotencyKey}`, {
+        headers: this.getAuthHeaders()
+      });
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -288,7 +493,7 @@ class FileDB {
       return await response.json();
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to FileDB service');
+        throw new Error('Network error: Unable to connect to File DB service');
       }
       throw error;
     }
