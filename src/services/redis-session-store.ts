@@ -22,8 +22,8 @@ export class RedisSessionStore {
     this.client = createClient({
       url: this.config.url,
       socket: {
-        reconnectDelay: 1000,
-        lazyConnect: true
+        reconnectStrategy: 1000,
+        
       }
     });
 
@@ -213,6 +213,35 @@ export class RedisSessionStore {
       return await this.client.ping();
     } catch (error) {
       console.error('❌ Redis ping failed:', error);
+      throw error;
+    }
+  }
+
+  // Generic caching methods for non-session data
+  async storeSessionData(key: string, data: string, ttl?: number): Promise<void> {
+    try {
+      const expiry = ttl || this.config.defaultTTL;
+      await this.client.setEx(key, expiry, data);
+    } catch (error) {
+      console.error('❌ Error storing data to Redis:', error);
+      throw error;
+    }
+  }
+
+  async getSessionData(key: string): Promise<string | null> {
+    try {
+      return await this.client.get(key);
+    } catch (error) {
+      console.error('❌ Error retrieving data from Redis:', error);
+      return null;
+    }
+  }
+
+  async deleteSessionData(key: string): Promise<void> {
+    try {
+      await this.client.del(key);
+    } catch (error) {
+      console.error('❌ Error deleting data from Redis:', error);
       throw error;
     }
   }

@@ -1,6 +1,6 @@
 import { GolemDBStorage as MemoryStorage } from './db-chain';
 import { GolemDBStorage } from './golem-storage';
-import { CONFIG } from '../types';
+import { CONFIG, FileMetadata } from '../types';
 
 export interface IStorage {
   storeChunk(chunk: any): Promise<void>;
@@ -16,6 +16,7 @@ export interface IStorage {
   getFileEntityKeys?(file_id: string): Promise<{ metadata_key?: string; chunk_keys: string[] }>;
   storeBatch?(metadata: any, chunks: any[]): Promise<{ metadata_key: string; chunk_keys: string[] }>;
   storeBatchChunks?(chunks: any[]): Promise<string[]>;
+  getAllMetadata(): Record<string, FileMetadata>;
 }
 
 export class StorageFactory {

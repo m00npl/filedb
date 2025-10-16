@@ -186,7 +186,7 @@ export class GolemDBConnectionPool {
       const accountData = {
         tag: 'privatekey',
         data: Buffer.from(hexKey, 'hex')
-      };
+      } as const;
 
       const client = await Promise.race([
         createClient(this.chainId, accountData, this.rpcUrl, this.wsUrl),

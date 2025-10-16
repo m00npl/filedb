@@ -46,7 +46,10 @@ async function initializeServices() {
 }
 
 // Initialize services on startup
-await initializeServices();
+initializeServices().catch((error) => {
+  console.error('Failed to initialize services:', error);
+  process.exit(1);
+});
 
 // Mount authentication routes (public routes)
 app.route('/auth', authRoutes);

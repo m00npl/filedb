@@ -1,6 +1,21 @@
 import { Context, Next } from 'hono';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { AuthenticationError, AuthorizationError } from './error-handling';
+import type * as ms from 'ms';
+
+declare module 'hono' {
+  interface ContextVariableMap {
+    userId: string;
+    userRole: 'user' | 'admin';
+    userPermissions: string[];
+    user: {
+      userId: string;
+      email?: string;
+      role: 'user' | 'admin';
+      permissions: string[];
+    };
+  }
+}
 
 export interface JWTPayload {
   userId: string;
@@ -13,8 +28,8 @@ export interface JWTPayload {
 
 export interface AuthConfig {
   jwtSecret: string;
-  jwtExpiresIn: string;
-  refreshTokenExpiresIn: string;
+  jwtExpiresIn: ms.StringValue;
+  refreshTokenExpiresIn: ms.StringValue;
   issuer: string;
   audience: string;
 }
@@ -25,8 +40,8 @@ export class AuthService {
   constructor() {
     this.config = {
       jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
-      jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
-      refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
+      jwtExpiresIn: process.env.JWT_EXPIRES_IN as ms.StringValue | undefined || '24h',
+      refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN as ms.StringValue | undefined || '7d',
       issuer: process.env.JWT_ISSUER || 'file-db',
       audience: process.env.JWT_AUDIENCE || 'file-db-users'
     };
@@ -40,7 +55,7 @@ export class AuthService {
     return jwt.sign(payload, this.config.jwtSecret, {
       expiresIn: this.config.jwtExpiresIn,
       issuer: this.config.issuer,
-      audience: this.config.audience
+      audience: this.config.audience,
     });
   }
 
@@ -252,11 +267,11 @@ export const apiKeyFallbackMiddleware = async (c: Context, next: Next) => {
       // Set admin context for unlimited API key
       c.set('userId', 'api-admin');
       c.set('userRole', 'admin');
-      c.set('userPermissions', ROLE_PERMISSIONS.admin);
+      c.set('userPermissions', [...ROLE_PERMISSIONS.admin]);
       c.set('user', {
         userId: 'api-admin',
         role: 'admin',
-        permissions: ROLE_PERMISSIONS.admin
+        permissions: [...ROLE_PERMISSIONS.admin]
       });
     }
 
@@ -269,7 +284,7 @@ export const apiKeyFallbackMiddleware = async (c: Context, next: Next) => {
 
 // User registration/login helpers
 export const createUserToken = (userId: string, email?: string, role: 'user' | 'admin' = 'user') => {
-  const permissions = ROLE_PERMISSIONS[role];
+  const permissions = [...ROLE_PERMISSIONS[role]];
 
   const accessToken = authService.generateAccessToken({
     userId,

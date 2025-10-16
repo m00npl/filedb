@@ -1,6 +1,7 @@
 import { CONFIG, QuotaInfo } from '../types';
 import { IStorage } from '../storage/storage-factory';
 import { RedisSessionStore } from './redis-session-store';
+import { isNativeError } from 'node:util/types';
 
 export class QuotaService {
   private userUsage: Map<string, QuotaInfo> = new Map();
@@ -30,7 +31,7 @@ export class QuotaService {
 
   hasUnlimitedAccess(request: any): boolean {
     const apiKey = request.headers?.['x-api-key'];
-    return CONFIG.UNLIMITED_API_KEY && apiKey === CONFIG.UNLIMITED_API_KEY;
+    return !!CONFIG.UNLIMITED_API_KEY && apiKey === CONFIG.UNLIMITED_API_KEY;
   }
 
   async checkQuota(userId: string, fileSize: number, request?: any): Promise<{ allowed: boolean; reason?: string }> {
@@ -69,7 +70,7 @@ export class QuotaService {
           await this.redisCache.deleteSessionData(`quota:${userId}`);
           console.log(`🗑️ Invalidated quota cache for user ${userId}`);
         } catch (error) {
-          console.warn('Failed to invalidate quota cache:', error.message);
+          console.warn('Failed to invalidate quota cache:', isNativeError(error) ? error.message : error);
         }
       }
     } else {
@@ -91,7 +92,7 @@ export class QuotaService {
           return JSON.parse(cached);
         }
       } catch (error) {
-        console.warn('Redis quota cache read failed:', error.message);
+        console.warn('Redis quota cache read failed:', isNativeError(error) ? error.message : error);
       }
     }
 
@@ -112,7 +113,7 @@ export class QuotaService {
             await this.redisCache.storeSessionData(`quota:${userId}`, JSON.stringify(quota), 600);
             console.log(`💾 Cached quota for user ${userId}`);
           } catch (error) {
-            console.warn('Redis quota cache write failed:', error.message);
+            console.warn('Redis quota cache write failed:', isNativeError(error) ? error.message : error);
           }
         }
 
