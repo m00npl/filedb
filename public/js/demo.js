@@ -134,6 +134,10 @@ class FileDBDemo {
       this.currentFileId = result.file_id;
       this.currentFileName = file.name;
 
+      // Upload to the blockchain may take a couple of seconds
+      // Wait a bit before fetching file info
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
       // Get file info to verify upload
       const fileInfo = await this.client.getInfo(result.file_id);
 
