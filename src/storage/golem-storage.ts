@@ -1,9 +1,11 @@
-import { createClient, createROClient } from 'golem-base-sdk';
+import { createClient, createROClient, type  GolemBaseClient, type GolemBaseROClient } from 'golem-base-sdk';
 import { ChunkEntity, FileMetadata } from '../types';
+import { isNativeError } from "node:util/types"
+import { IStorage } from './storage-factory';
 
-export class GolemDBStorage {
-  private writeClient: any = null;
-  private roClient: any = null;
+export class GolemDBStorage implements IStorage {
+  private writeClient: GolemBaseClient | null = null;
+  private roClient: GolemBaseROClient | null = null;
   private initialized: Promise<void>;
 
   constructor() {
@@ -27,7 +29,7 @@ export class GolemDBStorage {
       console.log(`🔗 Initializing Golem DB clients with optimized connections (timeout: ${connectionConfig.timeout}ms)`);
 
       // Always create read-only client with connection pooling
-      this.roClient = createROClient(chainId, rpcUrl, wsUrl, connectionConfig);
+      this.roClient = createROClient(chainId, rpcUrl, wsUrl);
 
       // Create write client if private key available
       let privateKeyHex = process.env.GOLEM_PRIVATE_KEY;
@@ -45,7 +47,7 @@ export class GolemDBStorage {
             console.log('💡 Docker secret file does not exist');
           }
         } catch (error) {
-          console.log('💡 Error reading Docker secrets:', error.message);
+          console.log('💡 Error reading Docker secrets:', isNativeError(error) ? error.message : error);
         }
       } else {
         console.log('🔑 Using private key from environment variable');
@@ -55,14 +57,14 @@ export class GolemDBStorage {
         const accountData = {
           tag: 'privatekey',
           data: Buffer.from(hexKey, 'hex')
-        };
+        } as const;
 
         // Try to create client with connection pooling - fallback if config not supported
         try {
-          this.writeClient = await createClient(chainId, accountData, rpcUrl, wsUrl, connectionConfig);
+          this.writeClient = await createClient(chainId, accountData, rpcUrl, wsUrl);
           console.log('🚀 Write client created with connection pooling');
         } catch (error) {
-          console.warn('⚠️  Connection pooling not supported, using standard client:', error.message);
+          console.warn('⚠️  Connection pooling not supported, using standard client:', isNativeError(error) ? error.message : error);
           this.writeClient = await createClient(chainId, accountData, rpcUrl, wsUrl);
         }
 
@@ -80,6 +82,10 @@ export class GolemDBStorage {
 
   async initialize(): Promise<void> {
     await this.initialized;
+  }
+
+  getAllMetadata(): Record<string, FileMetadata> {
+    throw new Error('Cannot get all metadata from blockchain storage');
   }
 
   async storeChunk(chunk: ChunkEntity): Promise<void> {
@@ -110,7 +116,10 @@ export class GolemDBStorage {
       };
 
       const receipts = await this.retryBlockchainOperation(
-        () => this.writeClient.createEntities([entity]),
+        () => {
+          if (!this.writeClient) throw new Error('Write client not initialized');
+          return this.writeClient.createEntities([entity]);
+        },
         `store chunk ${chunk.chunk_index}`
       );
       chunk.entity_key = receipts[0].entityKey;
@@ -157,7 +166,11 @@ export class GolemDBStorage {
       console.log(`🚀 Batch storing ${entities.length} chunk entities for file ${chunks[0]?.file_id}`);
 
       const receipts = await this.retryBlockchainOperation(
-        () => this.writeClient.createEntities(entities),
+        () => 
+        {
+          if (!this.writeClient) throw new Error('Write client not initialized');
+          return this.writeClient.createEntities(entities);
+        },
         `batch store ${chunks.length} chunks`,
         5, // More retries for batch operations
         2000 // Longer initial delay
@@ -249,7 +262,10 @@ export class GolemDBStorage {
       console.log(`🚀 Batch storing ${entities.length} entities (1 metadata + ${chunks.length} chunks) for file ${metadata.file_id}`);
 
       const receipts = await this.retryBlockchainOperation(
-        () => this.writeClient.createEntities(entities),
+        () => {
+          if (!this.writeClient) throw new Error('Write client not initialized');
+          return this.writeClient.createEntities(entities);
+        },
         `batch store file ${metadata.file_id}`,
         5, // More retries for batch operations
         2000 // Longer initial delay
@@ -285,6 +301,10 @@ export class GolemDBStorage {
       if (!ownerAddress) {
         console.error('❌ Cannot get chunks without owner address');
         return null;
+      }
+
+      if (!this.roClient) {
+        throw new Error('Read operations not available - read-only client not initialized');
       }
 
       const allEntities = await this.roClient.getEntitiesOfOwner(ownerAddress);
@@ -369,7 +389,10 @@ export class GolemDBStorage {
       };
 
       const receipts = await this.retryBlockchainOperation(
-        () => this.writeClient.createEntities([entity]),
+        () => {
+          if (!this.writeClient) throw new Error('Write client not initialized');
+          return this.writeClient.createEntities([entity]);
+        },
         `store metadata for file ${metadata.file_id}`
       );
       metadata.entity_key = receipts[0].entityKey;
@@ -394,6 +417,10 @@ export class GolemDBStorage {
         return null;
       }
 
+      if (!this.roClient) {
+        throw new Error('Read operations not available - read-only client not initialized');
+      }
+
       const allEntities = await this.roClient.getEntitiesOfOwner(ownerAddress);
 
       for (const entityKey of allEntities) {
@@ -408,7 +435,7 @@ export class GolemDBStorage {
 
         if (isMetadata && matchesFileId) {
           const data = await this.roClient.getStorageValue(entityKey);
-          const metadataJson = JSON.parse(data.toString('utf-8'));
+          const metadataJson = JSON.parse(data.toString());
 
           return {
             ...metadataJson,
@@ -436,6 +463,10 @@ export class GolemDBStorage {
       if (!ownerAddress) {
         console.error('❌ Cannot get chunks without owner address');
         return [];
+      }
+
+      if (!this.roClient) {
+        throw new Error('Read operations not available - read-only client not initialized');
       }
 
       const allEntities = await this.roClient.getEntitiesOfOwner(ownerAddress);
@@ -518,6 +549,10 @@ export class GolemDBStorage {
         return { used_bytes: 0, uploads_today: 0 };
       }
 
+      if (!this.roClient) {
+        throw new Error('Read operations not available - read-only client not initialized');
+      }
+
       const allEntities = await this.roClient.getEntitiesOfOwner(ownerAddress);
       const today = new Date().toISOString().split('T')[0];
 
@@ -536,7 +571,7 @@ export class GolemDBStorage {
 
         if (isQuota && matchesUser && matchesToday) {
           const data = await this.roClient.getStorageValue(entityKey);
-          const quotaData = JSON.parse(data.toString('utf-8'));
+          const quotaData = JSON.parse(data.toString());
 
           return {
             used_bytes: quotaData.used_bytes || 0,
@@ -606,6 +641,10 @@ export class GolemDBStorage {
         return [];
       }
 
+      if (!this.roClient) {
+        throw new Error('Read operations not available - read-only client not initialized');
+      }
+
       const allEntities = await this.roClient.getEntitiesOfOwner(ownerAddress);
       const files: FileMetadata[] = [];
 
@@ -621,7 +660,7 @@ export class GolemDBStorage {
 
         if (isMetadata && hasOwner) {
           const data = await this.roClient.getStorageValue(entityKey);
-          const metadataJson = JSON.parse(data.toString('utf-8'));
+          const metadataJson = JSON.parse(data.toString());
 
           files.push({
             ...metadataJson,
@@ -653,6 +692,10 @@ export class GolemDBStorage {
       if (!ownerAddress) {
         console.error('❌ Cannot get entity keys without owner address');
         return { chunk_keys: [] };
+      }
+
+      if (!this.roClient) {
+        throw new Error('Read operations not available - read-only client not initialized');
       }
 
       const allEntities = await this.roClient.getEntitiesOfOwner(ownerAddress);

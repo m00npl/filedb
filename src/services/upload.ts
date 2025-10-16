@@ -186,7 +186,7 @@ export class UploadService {
   async getFilesByExtension(extension: string): Promise<FileMetadata[]> {
     const allMetadata: FileMetadata[] = [];
 
-    for (const [_, metadata] of this.storage['metadata']) {
+    for (const [_, metadata] of Object.entries(this.storage.getAllMetadata())) {
       if (metadata.file_extension === extension.toLowerCase()) {
         allMetadata.push(metadata);
       }
@@ -198,7 +198,7 @@ export class UploadService {
   async getFilesByContentType(contentType: string): Promise<FileMetadata[]> {
     const allMetadata: FileMetadata[] = [];
 
-    for (const [_, metadata] of this.storage['metadata']) {
+    for (const [_, metadata] of Object.entries(this.storage.getAllMetadata())) {
       if (metadata.content_type === contentType) {
         allMetadata.push(metadata);
       }
@@ -218,7 +218,7 @@ export class UploadService {
     // Fallback for in-memory storage
     const allMetadata: FileMetadata[] = [];
 
-    for (const [_, metadata] of this.storage['metadata'] || []) {
+    for (const [_, metadata] of Object.entries(this.storage.getAllMetadata())) {
       if (metadata.owner === owner) {
         allMetadata.push(metadata);
       }

@@ -1,10 +1,14 @@
-import crypto from 'crypto';
 import { ChunkEntity, FileMetadata } from '../types';
+import { IStorage } from './storage-factory';
 
-export class GolemDBStorage {
+export class GolemDBStorage implements IStorage {
   private chunks: Map<string, ChunkEntity> = new Map();
   private metadata: Map<string, FileMetadata> = new Map();
   private currentBlock = 1000000; // Mock current block
+
+  getAllMetadata(): Record<string, FileMetadata> {
+    return Object.fromEntries(this.metadata);
+  }
 
   async storeChunk(chunk: ChunkEntity): Promise<void> {
     const key = `${chunk.file_id}_${chunk.chunk_index}`;
@@ -66,7 +70,7 @@ export class GolemDBStorage {
     return chunks;
   }
 
-  private getCurrentBlock(): number {
+  public getCurrentBlock(): number {
     return this.currentBlock;
   }
 

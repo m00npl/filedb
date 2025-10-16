@@ -8,6 +8,21 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <style>
+        .tab-button {
+            transition: all 0.2s ease-in-out;
+        }
+        .auth-form {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
     <!-- Header -->
@@ -426,10 +441,96 @@ Content-Disposition: inline; filename="original-name.ext"
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-12">
                 <h2 class="text-3xl font-extrabold text-gray-900">Try the Demo</h2>
-                <p class="mt-4 text-lg text-gray-600">Upload any file and see the chunking in action</p>
+                <p class="mt-4 text-lg text-gray-600">Register or login to upload files and see the chunking in action</p>
             </div>
 
-            <div class="bg-gray-50 rounded-lg p-8">
+            <!-- Authentication Section -->
+            <div id="authSection" class="bg-gray-50 rounded-lg p-8 mb-8">
+                <div class="flex justify-center mb-6">
+                    <div class="bg-white rounded-lg p-1 flex">
+                        <button id="loginTab" class="tab-button px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white">
+                            Login
+                        </button>
+                        <button id="registerTab" class="tab-button px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900">
+                            Register
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Login Form -->
+                <div id="loginForm" class="space-y-4 auth-form">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <input type="email" id="loginEmail" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="your@email.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" id="loginPassword" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="Your password">
+                    </div>
+                    <button id="loginBtn" type="submit"
+                            class="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700 disabled:bg-gray-400">
+                        Login
+                    </button>
+                </div>
+
+                <!-- Register Form -->
+                <div id="registerForm" class="space-y-4 auth-form hidden">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <input type="email" id="registerEmail" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="your@email.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" id="registerPassword" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="Choose a secure password">
+                    </div>
+                    <button id="registerBtn" type="submit"
+                            class="w-full bg-green-600 text-white py-2 px-4 rounded-md font-medium hover:bg-green-700 disabled:bg-gray-400">
+                        Register
+                    </button>
+                </div>
+
+                <!-- Auth Status -->
+                <div id="authStatus" class="hidden">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+                            <span class="text-blue-700">Authenticating...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Auth Error -->
+                <div id="authError" class="hidden">
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <h4 class="font-semibold text-red-800 mb-2">Authentication Failed</h4>
+                        <p class="text-sm text-red-700" id="authErrorMessage"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Info Section -->
+            <div id="userInfo" class="bg-green-50 border border-green-200 rounded-lg p-4 mb-8 hidden">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="font-semibold text-green-800">✅ Authenticated</h4>
+                        <p class="text-sm text-green-700">Logged in as: <span id="userEmail" class="font-mono"></span></p>
+                    </div>
+                    <button id="logoutBtn" class="text-green-600 hover:text-green-800 text-sm font-medium">
+                        Logout
+                    </button>
+                </div>
+            </div>
+
+            <!-- File Upload Section -->
+            <div id="uploadSection" class="bg-gray-50 rounded-lg p-8 hidden">
                 <div class="space-y-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">

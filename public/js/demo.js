@@ -7,13 +7,21 @@ class FileDBDemo {
     this.client = new FileDB(baseUrl);
     this.currentFileId = null;
     this.currentFileName = null;
+    this.currentUser = null;
+    this.isAuthenticated = false;
     this.initializeEventListeners();
+    this.checkAuthenticationState();
   }
 
   initializeEventListeners() {
     const uploadBtn = document.getElementById('uploadBtn');
     const fileInput = document.getElementById('fileInput');
     const downloadBtn = document.getElementById('downloadBtn');
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const loginTab = document.getElementById('loginTab');
+    const registerTab = document.getElementById('registerTab');
 
     if (uploadBtn) {
       uploadBtn.addEventListener('click', () => this.handleUpload());
@@ -26,11 +34,58 @@ class FileDBDemo {
     if (downloadBtn) {
       downloadBtn.addEventListener('click', () => this.handleDownload());
     }
+
+    if (loginBtn) {
+      loginBtn.addEventListener('click', () => this.handleLogin());
+    }
+
+    if (registerBtn) {
+      registerBtn.addEventListener('click', () => this.handleRegister());
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => this.handleLogout());
+    }
+
+    if (loginTab) {
+      loginTab.addEventListener('click', () => this.showLoginForm());
+    }
+
+    if (registerTab) {
+      registerTab.addEventListener('click', () => this.showRegisterForm());
+    }
+
+    // Handle Enter key in auth forms
+    ['loginEmail', 'loginPassword'].forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') this.handleLogin();
+        });
+      }
+    });
+
+    ['registerEmail', 'registerPassword'].forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') this.handleRegister();
+        });
+      }
+    });
   }
 
   handleFileSelection() {
     const input = document.getElementById('fileInput');
     const uploadBtn = document.getElementById('uploadBtn');
+
+    if (!this.isAuthenticated) {
+      if (uploadBtn) {
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = 'Please Login First';
+      }
+      return;
+    }
 
     if (input.files && input.files[0]) {
       const file = input.files[0];
@@ -52,6 +107,11 @@ class FileDBDemo {
   }
 
   async handleUpload() {
+    if (!this.isAuthenticated) {
+      this.showError('Please login or register first to upload files');
+      return;
+    }
+
     const input = document.getElementById('fileInput');
     const file = input.files[0];
 
@@ -73,6 +133,10 @@ class FileDBDemo {
 
       this.currentFileId = result.file_id;
       this.currentFileName = file.name;
+
+      // Upload to the blockchain may take a couple of seconds
+      // Wait a bit before fetching file info
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
       // Get file info to verify upload
       const fileInfo = await this.client.getInfo(result.file_id);
@@ -173,8 +237,11 @@ class FileDBDemo {
       const originalType = originalFile.type || 'application/octet-stream';
       const retrievedType = fileInfo.content_type;
 
+      // Normalize MIME types by removing charset and other parameters for comparison
+      const normalizeType = (type) => type.split(';')[0].trim();
+      
       const sizeMatch = originalSize === retrievedSize;
-      const typeMatch = originalType === retrievedType;
+      const typeMatch = normalizeType(originalType) === normalizeType(retrievedType);
       const integrityMatch = sizeMatch && typeMatch;
 
       // Add integrity indicator to the result
@@ -207,6 +274,168 @@ class FileDBDemo {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  // Authentication methods
+  checkAuthenticationState() {
+    // Check if user is already authenticated (token stored locally)
+    const storedToken = localStorage.getItem('filedb_access_token');
+    if (storedToken) {
+      this.client.setAccessToken(storedToken);
+      this.verifyToken();
+    } else {
+      this.showAuthSection();
+    }
+  }
+
+  async verifyToken() {
+    try {
+      const userInfo = await this.client.getMe();
+      this.currentUser = userInfo.user;
+      this.isAuthenticated = true;
+      this.showUploadSection();
+    } catch (error) {
+      // Token is invalid, clear it and show auth
+      localStorage.removeItem('filedb_access_token');
+      this.client.setAccessToken(null);
+      this.showAuthSection();
+    }
+  }
+
+  async handleLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+
+    if (!email || !password) {
+      this.showAuthError('Please fill in all fields');
+      return;
+    }
+
+    this.showAuthStatus();
+
+    try {
+      const result = await this.client.login(email, password);
+      this.currentUser = result.user;
+      this.isAuthenticated = true;
+      
+      // Store token for future sessions
+      localStorage.setItem('filedb_access_token', result.accessToken);
+      
+      this.showUploadSection();
+    } catch (error) {
+      this.showAuthError(error.message);
+    }
+  }
+
+  async handleRegister() {
+    const email = document.getElementById('registerEmail').value.trim();
+    const password = document.getElementById('registerPassword').value;
+
+    if (!email || !password) {
+      this.showAuthError('Please fill in all fields');
+      return;
+    }
+
+    if (password.length < 6) {
+      this.showAuthError('Password must be at least 6 characters long');
+      return;
+    }
+
+    this.showAuthStatus();
+
+    try {
+      const result = await this.client.register(email, password, 'user');
+      this.currentUser = result.user;
+      this.isAuthenticated = true;
+      
+      // Store token for future sessions
+      localStorage.setItem('filedb_access_token', result.accessToken);
+      
+      this.showUploadSection();
+    } catch (error) {
+      this.showAuthError(error.message);
+    }
+  }
+
+  handleLogout() {
+    this.currentUser = null;
+    this.isAuthenticated = false;
+    this.client.setAccessToken(null);
+    localStorage.removeItem('filedb_access_token');
+    this.showAuthSection();
+    this.hideResults();
+  }
+
+  showLoginForm() {
+    const loginTab = document.getElementById('loginTab');
+    const registerTab = document.getElementById('registerTab');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+
+    loginTab.className = 'tab-button px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white';
+    registerTab.className = 'tab-button px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900';
+    loginForm.classList.remove('hidden');
+    registerForm.classList.add('hidden');
+    this.hideAuthMessages();
+  }
+
+  showRegisterForm() {
+    const loginTab = document.getElementById('loginTab');
+    const registerTab = document.getElementById('registerTab');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+
+    registerTab.className = 'tab-button px-4 py-2 rounded-md text-sm font-medium bg-green-600 text-white';
+    loginTab.className = 'tab-button px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900';
+    registerForm.classList.remove('hidden');
+    loginForm.classList.add('hidden');
+    this.hideAuthMessages();
+  }
+
+  showAuthSection() {
+    document.getElementById('authSection').classList.remove('hidden');
+    document.getElementById('userInfo').classList.add('hidden');
+    document.getElementById('uploadSection').classList.add('hidden');
+    this.clearAuthForms();
+  }
+
+  showUploadSection() {
+    document.getElementById('authSection').classList.add('hidden');
+    document.getElementById('userInfo').classList.remove('hidden');
+    document.getElementById('uploadSection').classList.remove('hidden');
+    document.getElementById('userEmail').textContent = this.currentUser.email;
+    
+    // Add fade-in animation
+    const uploadSection = document.getElementById('uploadSection');
+    const userInfo = document.getElementById('userInfo');
+    uploadSection.classList.add('fade-in');
+    userInfo.classList.add('fade-in');
+    
+    this.hideAuthMessages();
+  }
+
+  showAuthStatus() {
+    this.hideAuthMessages();
+    document.getElementById('authStatus').classList.remove('hidden');
+  }
+
+  showAuthError(message) {
+    this.hideAuthMessages();
+    document.getElementById('authError').classList.remove('hidden');
+    document.getElementById('authErrorMessage').textContent = message;
+  }
+
+  hideAuthMessages() {
+    document.getElementById('authStatus').classList.add('hidden');
+    document.getElementById('authError').classList.add('hidden');
+  }
+
+  clearAuthForms() {
+    ['loginEmail', 'loginPassword', 'registerEmail', 'registerPassword'].forEach(id => {
+      const element = document.getElementById(id);
+      if (element) element.value = '';
+    });
+    this.hideAuthMessages();
   }
 }
 

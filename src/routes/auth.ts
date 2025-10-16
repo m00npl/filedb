@@ -112,7 +112,7 @@ auth.post('/refresh', async (c) => {
     }
 
     // In production, you'd get user permissions from database
-    const userPermissions = ROLE_PERMISSIONS.user;
+    const userPermissions = [...ROLE_PERMISSIONS.user];
     const userRole = 'user';
 
     const newAccessToken = authService.refreshAccessToken(

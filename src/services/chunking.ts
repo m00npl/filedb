@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { gzipSync, gunzipSync } from 'zlib';
 import { CONFIG, ChunkEntity, FileMetadata } from '../types';
 
