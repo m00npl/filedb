@@ -237,8 +237,11 @@ class FileDBDemo {
       const originalType = originalFile.type || 'application/octet-stream';
       const retrievedType = fileInfo.content_type;
 
+      // Normalize MIME types by removing charset and other parameters for comparison
+      const normalizeType = (type) => type.split(';')[0].trim();
+      
       const sizeMatch = originalSize === retrievedSize;
-      const typeMatch = originalType === retrievedType;
+      const typeMatch = normalizeType(originalType) === normalizeType(retrievedType);
       const integrityMatch = sizeMatch && typeMatch;
 
       // Add integrity indicator to the result
