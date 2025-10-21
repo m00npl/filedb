@@ -1,4 +1,4 @@
-import { createArkivClient, createArkivROClient } from 'arkiv-sdk';
+import { createClient, createROClient } from 'arkiv-sdk';
 import { ChunkEntity, FileMetadata } from '../types';
 
 export class ArkivStorage {
@@ -27,7 +27,7 @@ export class ArkivStorage {
       console.log(`🔗 Initializing Arkiv clients with optimized connections (timeout: ${connectionConfig.timeout}ms)`);
 
       // Always create read-only client with connection pooling
-      this.roClient = createArkivROClient(chainId, rpcUrl, wsUrl, connectionConfig);
+      this.roClient = createROClient(chainId, rpcUrl, wsUrl);
 
       // Create write client if private key available
       let privateKeyHex = process.env.ARKIV_PRIVATE_KEY;
@@ -57,14 +57,8 @@ export class ArkivStorage {
           data: Buffer.from(hexKey, 'hex')
         };
 
-        // Try to create client with connection pooling - fallback if config not supported
-        try {
-          this.writeClient = await createArkivClient(chainId, accountData, rpcUrl, wsUrl, connectionConfig);
-          console.log('🚀 Write client created with connection pooling');
-        } catch (error) {
-          console.warn('⚠️  Connection pooling not supported, using standard client:', error.message);
-          this.writeClient = await createArkivClient(chainId, accountData, rpcUrl, wsUrl);
-        }
+        // Create write client
+        this.writeClient = await createClient(chainId, accountData, rpcUrl, wsUrl);
 
         console.log('✅ Connected to Arkiv with write access');
         const ownerAddress = await this.writeClient.getOwnerAddress();
