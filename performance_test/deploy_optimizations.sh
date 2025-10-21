@@ -3,7 +3,7 @@
 echo "🚀 Deploying File DB Optimizations to Production"
 echo "================================================"
 
-SERVER="ubuntu@moon.dev.golem.network"
+SERVER="ubuntu@moon.dev.arkiv.network"
 
 echo "1. Creating optimized environment configuration..."
 ssh $SERVER "cd ~ && echo 'BLOCKCHAIN_TIMEOUT=300000' > .env.local"

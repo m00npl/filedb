@@ -1,3 +1,7 @@
+# Include src directory
+!src/
+!public/
+
 node_modules
 .git
 .gitignore
@@ -31,8 +35,6 @@ test-*.json
 downloaded-*
 big-test.txt
 small*.txt
-*.txt
-*.bin
 
 # Development files
 .env.local

@@ -184,18 +184,28 @@ export const optionalJwtAuthMiddleware = async (c: Context, next: Next) => {
       c.set('userRole', payload.role);
       c.set('userPermissions', payload.permissions);
     } else {
-      // Anonymous user
+      // Anonymous user with basic permissions for demo
       c.set('userId', 'anonymous');
       c.set('userRole', 'user');
-      c.set('userPermissions', []);
+      c.set('userPermissions', [
+        PERMISSIONS.UPLOAD_FILES,
+        PERMISSIONS.DOWNLOAD_FILES,
+        PERMISSIONS.LIST_FILES,
+        PERMISSIONS.VIEW_QUOTA
+      ]);
     }
 
     await next();
   } catch (error) {
-    // If token is invalid, treat as anonymous
+    // If token is invalid, treat as anonymous with basic permissions
     c.set('userId', 'anonymous');
     c.set('userRole', 'user');
-    c.set('userPermissions', []);
+    c.set('userPermissions', [
+      PERMISSIONS.UPLOAD_FILES,
+      PERMISSIONS.DOWNLOAD_FILES,
+      PERMISSIONS.LIST_FILES,
+      PERMISSIONS.VIEW_QUOTA
+    ]);
 
     await next();
   }

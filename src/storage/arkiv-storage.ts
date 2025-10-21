@@ -1,7 +1,7 @@
-import { createClient, createROClient } from 'golem-base-sdk';
+import { createArkivClient, createArkivROClient } from 'arkiv-sdk-js';
 import { ChunkEntity, FileMetadata } from '../types';
 
-export class GolemDBStorage {
+export class ArkivStorage {
   private writeClient: any = null;
   private roClient: any = null;
   private initialized: Promise<void>;
@@ -12,9 +12,9 @@ export class GolemDBStorage {
 
   private async initializeClients(): Promise<void> {
     try {
-      const chainId = parseInt(process.env.GOLEM_CHAIN_ID || '60138453025');
-      const rpcUrl = process.env.GOLEM_RPC_URL || 'https://kaolin.holesky.golem-base.io/rpc';
-      const wsUrl = process.env.GOLEM_WS_URL || 'wss://kaolin.holesky.golem-base.io/ws';
+      const chainId = parseInt(process.env.ARKIV_CHAIN_ID || '60138453025');
+      const rpcUrl = process.env.ARKIV_RPC_URL || 'https://kaolin.hoodi.arkiv.network/rpc';
+      const wsUrl = process.env.ARKIV_WS_URL || 'wss://kaolin.hoodi.arkiv.network/rpc/ws';
 
       // Connection pooling configuration for better performance
       const connectionConfig = {
@@ -24,19 +24,19 @@ export class GolemDBStorage {
         retryAttempts: 3
       };
 
-      console.log(`🔗 Initializing Golem DB clients with optimized connections (timeout: ${connectionConfig.timeout}ms)`);
+      console.log(`🔗 Initializing Arkiv clients with optimized connections (timeout: ${connectionConfig.timeout}ms)`);
 
       // Always create read-only client with connection pooling
-      this.roClient = createROClient(chainId, rpcUrl, wsUrl, connectionConfig);
+      this.roClient = createArkivROClient(chainId, rpcUrl, wsUrl, connectionConfig);
 
       // Create write client if private key available
-      let privateKeyHex = process.env.GOLEM_PRIVATE_KEY;
+      let privateKeyHex = process.env.ARKIV_PRIVATE_KEY;
 
       // Try to read from Docker secrets if env variable not available
       if (!privateKeyHex) {
         try {
           const fs = require('fs');
-          const secretPath = '/run/secrets/golem_private_key';
+          const secretPath = '/run/secrets/arkiv_private_key';
           console.log(`🔍 Checking for Docker secret at: ${secretPath}`);
           if (fs.existsSync(secretPath)) {
             privateKeyHex = fs.readFileSync(secretPath, 'utf8').trim();
@@ -59,21 +59,21 @@ export class GolemDBStorage {
 
         // Try to create client with connection pooling - fallback if config not supported
         try {
-          this.writeClient = await createClient(chainId, accountData, rpcUrl, wsUrl, connectionConfig);
+          this.writeClient = await createArkivClient(chainId, accountData, rpcUrl, wsUrl, connectionConfig);
           console.log('🚀 Write client created with connection pooling');
         } catch (error) {
           console.warn('⚠️  Connection pooling not supported, using standard client:', error.message);
-          this.writeClient = await createClient(chainId, accountData, rpcUrl, wsUrl);
+          this.writeClient = await createArkivClient(chainId, accountData, rpcUrl, wsUrl);
         }
 
-        console.log('✅ Connected to Golem DB with write access');
+        console.log('✅ Connected to Arkiv with write access');
         const ownerAddress = await this.writeClient.getOwnerAddress();
         console.log(`📍 Owner address: ${ownerAddress}`);
       } else {
-        console.log('✅ Connected to Golem DB with read-only access');
+        console.log('✅ Connected to Arkiv with read-only access');
       }
     } catch (error) {
-      console.error('❌ Failed to connect to Golem DB:', error);
+      console.error('❌ Failed to connect to Arkiv:', error);
       throw error;
     }
   }

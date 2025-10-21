@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { ChunkEntity, FileMetadata } from '../types';
 
-export class GolemDBStorage {
+export class ArkivMemoryStorage {
   private chunks: Map<string, ChunkEntity> = new Map();
   private metadata: Map<string, FileMetadata> = new Map();
   private currentBlock = 1000000; // Mock current block
@@ -71,7 +71,7 @@ export class GolemDBStorage {
   }
 
   calculateExpirationBlock(btl_days: number): number {
-    const blocksToAdd = btl_days * 2880; // 2880 blocks per day for Golem DB
+    const blocksToAdd = btl_days * 2880; // 2880 blocks per day for Arkiv
     return this.getCurrentBlock() + blocksToAdd;
   }
 }

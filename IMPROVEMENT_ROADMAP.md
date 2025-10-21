@@ -3,12 +3,12 @@
 
 ## Executive Summary
 
-This roadmap outlines a comprehensive improvement plan for FileDB, a file storage middleware service built on Golem DB blockchain. The plan addresses critical security vulnerabilities, performance bottlenecks, and scalability limitations identified through codebase analysis.
+This roadmap outlines a comprehensive improvement plan for FileDB, a file storage middleware service built on Arkiv blockchain. The plan addresses critical security vulnerabilities, performance bottlenecks, and scalability limitations identified through codebase analysis.
 
 ## Current State Analysis
 
 ### Architecture Overview
-- **Technology Stack**: Bun runtime, Hono framework, Golem DB blockchain storage
+- **Technology Stack**: Bun runtime, Hono framework, Arkiv blockchain storage
 - **Core Features**: File chunking, blockchain storage, owner-based file management, quota tracking
 - **Current Limitations**: In-memory session storage, sequential processing, limited error handling
 
@@ -160,9 +160,9 @@ export class ParallelUploadService {
   async processBatchesParallel(batches: ChunkEntity[][]): Promise<void>
 }
 
-// Update: src/storage/golem-storage.ts
-export class GolemDBStorage {
-  private connectionPool: GolemConnectionPool
+// Update: src/storage/arkiv-storage.ts
+export class ArkivDBStorage {
+  private connectionPool: ArkivConnectionPool
 
   async storeBatchParallel(entities: Entity[]): Promise<Receipt[]>
 }
@@ -324,8 +324,8 @@ export class MetricsCollector {
 
 **Code Changes Required:**
 ```typescript
-// Update: src/storage/golem-storage.ts
-export class GolemDBStorage {
+// Update: src/storage/arkiv-storage.ts
+export class ArkivDBStorage {
   private queryCache: Map<string, CachedResult>
   private indexCache: Map<string, EntityIndex>
 
@@ -622,7 +622,7 @@ kubectl set image deployment/filesdb filesdb=moonplkr/filesdb:secure
 ### High-Risk Items
 
 #### 1. Blockchain Integration Stability
-**Risk**: Golem DB API changes or network issues could break functionality
+**Risk**: Arkiv API changes or network issues could break functionality
 **Mitigation**:
 - Implement adapter pattern for blockchain client
 - Add fallback storage mechanisms

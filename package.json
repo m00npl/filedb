@@ -1,7 +1,7 @@
 {
   "name": "filesdb",
   "version": "1.0.0",
-  "description": "File chunking service for Golem DB",
+  "description": "File chunking service for Arkiv",
   "main": "src/server.ts",
   "scripts": {
     "dev": "bun run --hot src/server.ts",
@@ -14,7 +14,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "crypto": "^1.0.1",
     "file-type": "^21.0.0",
-    "golem-base-sdk": "^0.1.16",
+    "arkiv-sdk-js": "github:Arkiv-Network/arkiv-sdk-js",
     "hono": "^4.6.3",
     "jsonwebtoken": "^9.0.2",
     "redis": "^5.8.2",

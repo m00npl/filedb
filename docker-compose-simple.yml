@@ -8,11 +8,11 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3003
-      - GOLEM_CHAIN_ID=60138453025
-      - GOLEM_PRIVATE_KEY=0x54b3dbb50f964c32e9a9942fe46c0697c0af855c60a818a3447ed063f7f9be67
-      - GOLEM_RPC_URL=https://kaolin.holesky.golem-base.io/rpc
-      - GOLEM_WS_URL=wss://kaolin.holesky.golem-base.io/ws
-      - STORAGE_MODE=golemdb
+      - ARKIV_CHAIN_ID=60138453025
+      - ARKIV_PRIVATE_KEY=0x54b3dbb50f964c32e9a9942fe46c0697c0af855c60a818a3447ed063f7f9be67
+      - ARKIV_RPC_URL=https://kaolin.hoodi.arkiv.network/rpc
+      - ARKIV_WS_URL=wss://kaolin.hoodi.arkiv.network/rpc/ws
+      - STORAGE_MODE=arkiv
       - BLOCKCHAIN_TIMEOUT=300000
     volumes:
       - ./data:/usr/src/app/data
@@ -24,7 +24,7 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - moon_golem_network
+      - moon_arkiv_network
     labels:
       # Main domain through Cloudflare (for regular requests)
       - "traefik.enable=true"
@@ -46,5 +46,5 @@ services:
       - "traefik.http.services.filesdb-upload.loadbalancer.responseForwarding.flushInterval=100ms"
 
 networks:
-  moon_golem_network:
+  moon_arkiv_network:
     external: true

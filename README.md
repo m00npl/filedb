@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Live Demo](https://img.shields.io/badge/demo-live-success)](https://filedb.online)
 
-File chunking middleware for Golem DB that splits large files into safe-sized chunks, stores them securely, and serves them back as single files. Perfect for documents, media, archives, and any file type up to 50MB.
+File chunking middleware for Arkiv that splits large files into safe-sized chunks, stores them securely, and serves them back as single files. Perfect for documents, media, archives, and any file type up to 50MB.
 
 ## ✨ Features
 
@@ -205,11 +205,11 @@ Edit `.env` file for your deployment:
 PORT=3000
 NODE_ENV=production
 
-# Optional: Golem DB Configuration (for future blockchain integration)
-# GOLEM_CHAIN_ID=60138453025
-# GOLEM_PRIVATE_KEY=your_private_key_here
-# GOLEM_RPC_URL=https://kaolin.holesky.golemdb.io/rpc
-# GOLEM_WS_URL=wss://kaolin.holesky.golemdb.io/rpc/ws
+# Optional: Arkiv Configuration (for future blockchain integration)
+# ARKIV_CHAIN_ID=60138453025
+# ARKIV_PRIVATE_KEY=your_private_key_here
+# ARKIV_RPC_URL=https://kaolin.hoodi.arkiv.network/rpc
+# ARKIV_WS_URL=wss://kaolin.hoodi.arkiv.network/rpc/ws
 ```
 
 ### 6. Docker Compose Configuration
@@ -329,10 +329,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- 📧 Email: maciej.maciejowski@golem.network
+- 📧 Email: maciej.maciejowski@arkiv.network
 - 🐛 Issues: [GitHub Issues](https://github.com/m00npl/filedb/issues)
 - 📖 Documentation: Available at your deployment root URL
 
 ---
 
-Built with ❤️ for the Golem DB ecosystem
+Built with ❤️ for the Arkiv ecosystem

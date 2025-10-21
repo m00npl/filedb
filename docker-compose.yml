@@ -20,14 +20,14 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3003
-      - GOLEM_CHAIN_ID=60138453025
-      - GOLEM_RPC_URL=https://kaolin.holesky.golem-base.io/rpc
-      - GOLEM_WS_URL=wss://kaolin.holesky.golem-base.io/ws
-      - STORAGE_MODE=golemdb
+      - ARKIV_CHAIN_ID=60138453025
+      - ARKIV_RPC_URL=https://kaolin.hoodi.arkiv.network/rpc
+      - ARKIV_WS_URL=wss://kaolin.hoodi.arkiv.network/rpc/ws
+      - STORAGE_MODE=arkiv
       - BLOCKCHAIN_TIMEOUT=300000
       - REDIS_URL=redis://redis:6379
     secrets:
-      - golem_private_key
+      - arkiv_private_key
     volumes:
       - ./data:/usr/src/app/data
     depends_on:
@@ -64,8 +64,8 @@ services:
       - "traefik.http.services.filesdb-service.loadbalancer.responseForwarding.flushInterval=100ms"
 
 secrets:
-  golem_private_key:
-    file: ./secrets/golem_private_key.txt
+  arkiv_private_key:
+    file: ./secrets/arkiv_private_key.txt
 
 volumes:
   redis_data:

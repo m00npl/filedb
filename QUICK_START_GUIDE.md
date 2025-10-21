@@ -56,7 +56,7 @@ grep -r "console.log.*env" src/ --include="*.ts"
 Create `src/config/environment.ts`:
 ```typescript
 export const validateEnvironment = () => {
-  const required = ['GOLEM_PRIVATE_KEY', 'PORT'];
+  const required = ['ARKIV_PRIVATE_KEY', 'PORT'];
   const missing = required.filter(key => !process.env[key]);
 
   if (missing.length > 0) {
@@ -213,7 +213,7 @@ docker buildx build --no-cache -t moonplkr/filesdb:latest .
 docker push moonplkr/filesdb:latest
 
 # Deploy on server
-ssh ubuntu@moon.dev.golem.network "
+ssh ubuntu@moon.dev.arkiv.network "
   docker pull moonplkr/filesdb:latest &&
   docker-compose down &&
   docker-compose up -d
@@ -227,7 +227,7 @@ docker buildx build --no-cache --platform linux/amd64 -t moonplkr/filesdb:v1.1.0
 docker push moonplkr/filesdb:v1.1.0
 
 # Deploy with health checks
-ssh ubuntu@moon.dev.golem.network "
+ssh ubuntu@moon.dev.arkiv.network "
   export IMAGE_TAG=v1.1.0 &&
   docker-compose -f docker-compose.prod.yml pull &&
   docker-compose -f docker-compose.prod.yml up -d
@@ -408,7 +408,7 @@ volumes:
 ### Rollback Plan
 ```bash
 # Quick rollback procedure
-ssh ubuntu@moon.dev.golem.network "
+ssh ubuntu@moon.dev.arkiv.network "
   docker-compose down &&
   docker tag moonplkr/filesdb:v1.0.0 moonplkr/filesdb:latest &&
   docker-compose up -d

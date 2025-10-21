@@ -61,7 +61,7 @@
   - [ ] Create `src/services/parallel-upload.ts`
   - [ ] Implement Worker thread pool
   - [ ] Add chunk upload parallelization
-  - [ ] Create connection pooling for Golem DB
+  - [ ] Create connection pooling for Arkiv
   - [ ] Test with various file sizes
 
 - [ ] **Batch Optimization**

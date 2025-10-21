@@ -3,27 +3,23 @@ WORKDIR /usr/src/app
 
 FROM base AS install
 RUN mkdir -p /temp/dev
-COPY package.json /temp/dev/
+COPY package.json bun.lock /temp/dev/
 RUN cd /temp/dev && bun install --frozen-lockfile
 
 RUN mkdir -p /temp/prod
-COPY package.json /temp/prod/
-RUN cd /temp/prod && bun install --frozen-lockfile --production
-
-FROM base AS prerelease
-COPY --from=install /temp/dev/node_modules node_modules
-COPY . .
-
-ENV NODE_ENV=production
-RUN bun run build
+COPY package.json bun.lock /temp/prod/
+RUN cd /temp/prod && bun install --frozen-lockfile && cd node_modules/arkiv-sdk-js && bun install && bun run build
 
 FROM base AS release
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 COPY --from=install /temp/prod/node_modules node_modules
-COPY --from=prerelease /usr/src/app/dist ./dist
-COPY --from=prerelease /usr/src/app/public ./public
 COPY package.json .
+COPY tsconfig.json .
+COPY src/ ./src/
+COPY public/ ./public/
+
+RUN chmod -R 755 ./src ./public
 
 USER bun
 EXPOSE 3000/tcp
-ENTRYPOINT [ "bun", "run", "start" ]
+ENTRYPOINT [ "bun", "/usr/src/app/src/server.ts" ]

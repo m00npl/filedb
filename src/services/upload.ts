@@ -210,7 +210,7 @@ export class UploadService {
   async getFilesByOwner(owner: string): Promise<FileMetadata[]> {
     await this.initialize();
 
-    // For Golem DB storage, we need to use the storage layer method
+    // For Arkiv storage, we need to use the storage layer method
     if (this.storage.getFilesByOwner) {
       return await this.storage.getFilesByOwner(owner);
     }

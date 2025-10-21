@@ -1,4 +1,4 @@
-import { createClient, createROClient } from 'golem-base-sdk';
+import { createArkivClient, createArkivROClient } from 'arkiv-sdk-js';
 
 export interface PooledConnection {
   id: string;
@@ -19,7 +19,7 @@ export interface ConnectionPoolConfig {
   connectionTimeout: number; // milliseconds
 }
 
-export class GolemDBConnectionPool {
+export class ArkivDBConnectionPool {
   private writeConnections: PooledConnection[] = [];
   private readConnections: PooledConnection[] = [];
   private waitingForWrite: ((connection: PooledConnection) => void)[] = [];
@@ -48,7 +48,7 @@ export class GolemDBConnectionPool {
   }
 
   async initialize(): Promise<void> {
-    console.log('🔗 Initializing Golem DB connection pool...');
+    console.log('🔗 Initializing Arkiv connection pool...');
 
     // Create initial read connections
     const readPromises = Array.from({ length: Math.min(2, this.config.maxReadConnections) }, () =>
@@ -189,7 +189,7 @@ export class GolemDBConnectionPool {
       };
 
       const client = await Promise.race([
-        createClient(this.chainId, accountData, this.rpcUrl, this.wsUrl),
+        createArkivClient(this.chainId, accountData, this.rpcUrl, this.wsUrl),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Connection timeout')), this.config.connectionTimeout)
         )
@@ -220,7 +220,7 @@ export class GolemDBConnectionPool {
 
     try {
       const client = await Promise.race([
-        createROClient(this.chainId, this.rpcUrl, this.wsUrl),
+        createArkivROClient(this.chainId, this.rpcUrl, this.wsUrl),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Connection timeout')), this.config.connectionTimeout)
         )

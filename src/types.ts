@@ -8,7 +8,7 @@ export interface ChunkEntity {
   checksum: string;
   created_at: Date;
   expiration_block: number;
-  entity_key?: string; // Golem DB entity key
+  entity_key?: string; // Arkiv entity key
 }
 
 export interface FileMetadata {
@@ -22,7 +22,7 @@ export interface FileMetadata {
   created_at: Date;
   expiration_block: number;
   btl_days: number;
-  entity_key?: string; // Golem DB entity key
+  entity_key?: string; // Arkiv entity key
   owner?: string; // Custom owner annotation
 }
 
@@ -59,7 +59,7 @@ export const CONFIG = {
   DEFAULT_BTL_DAYS: parseInt(process.env.DEFAULT_BTL_DAYS || '7'),
   FREE_TIER_MAX_BYTES: 500 * 1024 * 1024, // 500 MB
   FREE_TIER_MAX_UPLOADS_PER_DAY: 50,
-  BLOCKS_PER_DAY: 2880, // Golem DB block timing
+  BLOCKS_PER_DAY: 2880, // Arkiv block timing
   STORAGE_MODE: process.env.STORAGE_MODE || 'memory',
   UNLIMITED_API_KEY: process.env.UNLIMITED_API_KEY,
   ALLOWED_FILE_TYPES: [

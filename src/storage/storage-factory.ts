@@ -1,5 +1,5 @@
-import { GolemDBStorage as MemoryStorage } from './db-chain';
-import { GolemDBStorage } from './golem-storage';
+import { ArkivMemoryStorage as MemoryStorage } from './db-chain';
+// import { ArkivStorage } from './arkiv-storage'; // Temporarily disabled - arkiv-sdk-js export issues
 import { CONFIG } from '../types';
 
 export interface IStorage {
@@ -20,11 +20,8 @@ export interface IStorage {
 
 export class StorageFactory {
   static async createStorage(): Promise<IStorage> {
-    if (CONFIG.STORAGE_MODE === 'golemdb') {
-      console.log('🔗 Initializing Golem DB storage...');
-      const storage = new GolemDBStorage();
-      await storage.initialize();
-      return storage;
+    if (CONFIG.STORAGE_MODE === 'arkiv') {
+      throw new Error('Arkiv storage temporarily disabled due to arkiv-sdk-js export issues');
     } else {
       console.log('💾 Using in-memory storage...');
       return new MemoryStorage();
