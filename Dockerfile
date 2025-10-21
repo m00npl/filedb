@@ -8,7 +8,7 @@ RUN cd /temp/dev && bun install --frozen-lockfile
 
 RUN mkdir -p /temp/prod
 COPY package.json bun.lock /temp/prod/
-RUN cd /temp/prod && bun install --frozen-lockfile && cd node_modules/arkiv-sdk-js && bun install && bun run build
+RUN cd /temp/prod && bun install --frozen-lockfile
 
 FROM base AS release
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
