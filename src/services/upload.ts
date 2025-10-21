@@ -248,7 +248,7 @@ export class UploadService {
     try {
       // Try adaptive batch upload first
       if (this.storage.storeBatch) {
-        const BATCH_SIZE = 4; // Optimized: 4 chunks per batch to avoid HTTP 413 errors
+        const BATCH_SIZE = 1; // Optimized: 1 chunk per batch to avoid HTTP 413 errors (metadata in first batch)
         const totalChunks = chunks.length;
         const batchCount = Math.ceil(totalChunks / BATCH_SIZE);
 
