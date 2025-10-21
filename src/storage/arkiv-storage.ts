@@ -1,4 +1,4 @@
-import { createArkivClient, createArkivROClient } from 'arkiv-sdk-js';
+import { createArkivClient, createArkivROClient } from 'arkiv-sdk';
 import { ChunkEntity, FileMetadata } from '../types';
 
 export class ArkivStorage {

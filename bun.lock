@@ -6,7 +6,7 @@
       "dependencies": {
         "@hono/node-server": "^1.12.0",
         "@types/jsonwebtoken": "^9.0.10",
-        "arkiv-sdk-js": "github:Arkiv-Network/arkiv-sdk-js",
+        "arkiv-sdk": "latest",
         "crypto": "^1.0.1",
         "file-type": "^21.0.0",
         "hono": "^4.6.3",
@@ -67,7 +67,7 @@
 
     "aes-js": ["aes-js@4.0.0-beta.5", "", {}, "sha512-G965FqalsNyrPqgEGON7nIx1e/OVENSgiEIzyC63haUMuvNnwIgIjMs52hlTCKhkBny7A2ORNlfY9Zu+jmGk1Q=="],
 
-    "arkiv-sdk-js": ["arkiv-sdk@github:Arkiv-Network/arkiv-sdk-js#cff06d1", { "dependencies": { "@types/node": "^22.18.7", "ethers": "^6.15.0", "tslog": "^4.10.2", "viem": "^2.37.9" } }, "Arkiv-Network-arkiv-sdk-js-cff06d1"],
+    "arkiv-sdk": ["arkiv-sdk@0.1.19", "", { "dependencies": { "@types/node": "^22.18.7", "ethers": "^6.15.0", "tslog": "^4.10.2", "viem": "^2.37.9" } }, "sha512-kCq01r2loQJykVwoth7Caqtx9drJXr3elsBqh/+zDRcx2pqqa8bdt8Oe2uoJ19ZFJTd+Uqf+IgTHqgztdQOmuw=="],
 
     "buffer-equal-constant-time": ["buffer-equal-constant-time@1.0.1", "", {}, "sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA=="],
 
@@ -149,7 +149,7 @@
 
     "@scure/bip39/@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
 
-    "arkiv-sdk-js/@types/node": ["@types/node@22.18.9", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-5yBtK0k/q8PjkMXbTfeIEP/XVYnz1R9qZJ3yUicdEW7ppdDJfe+MqXEhpqDL3mtn4Wvs1u0KLEG0RXzCgNpsSg=="],
+    "arkiv-sdk/@types/node": ["@types/node@22.18.9", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-5yBtK0k/q8PjkMXbTfeIEP/XVYnz1R9qZJ3yUicdEW7ppdDJfe+MqXEhpqDL3mtn4Wvs1u0KLEG0RXzCgNpsSg=="],
 
     "ethers/@types/node": ["@types/node@22.7.5", "", { "dependencies": { "undici-types": "~6.19.2" } }, "sha512-jML7s2NAzMWc//QSJ1a3prpk78cOPchGvXJsC3C6R6PSMoooztvRVQEz89gmBTBY1SPMaqo5teB4uNHPdetShQ=="],
 
@@ -167,7 +167,7 @@
 
     "viem/ws": ["ws@8.18.3", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg=="],
 
-    "arkiv-sdk-js/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
+    "arkiv-sdk/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
     "ethers/@types/node/undici-types": ["undici-types@6.19.8", "", {}, "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw=="],
   }
