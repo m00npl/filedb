@@ -73,6 +73,8 @@ export const CONFIG = {
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'text/plain',
     'text/csv',
+    'text/markdown',
+    'text/x-markdown',
     'application/rtf',
 
     // Archives
