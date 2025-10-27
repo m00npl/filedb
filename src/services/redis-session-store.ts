@@ -134,8 +134,11 @@ export class RedisSessionStore {
       const keys: string[] = [];
 
       // Use SCAN instead of KEYS to avoid blocking Redis
-      for await (const key of this.client.scanIterator({ MATCH: pattern })) {
-        keys.push(key);
+      for await (const key of this.client.scanIterator({ MATCH: pattern, TYPE: 'string' })) {
+        // scanIterator returns strings for keys
+        if (typeof key === 'string') {
+          keys.push(key);
+        }
       }
 
       const sessions = new Map<string, UploadSession>();
@@ -190,8 +193,10 @@ export class RedisSessionStore {
       let count = 0;
 
       // Use SCAN instead of KEYS to avoid blocking Redis
-      for await (const key of this.client.scanIterator({ MATCH: pattern })) {
-        count++;
+      for await (const key of this.client.scanIterator({ MATCH: pattern, TYPE: 'string' })) {
+        if (typeof key === 'string') {
+          count++;
+        }
       }
 
       return count;
@@ -207,8 +212,10 @@ export class RedisSessionStore {
       const keys: string[] = [];
 
       // Use SCAN instead of KEYS to avoid blocking Redis
-      for await (const key of this.client.scanIterator({ MATCH: pattern })) {
-        keys.push(key);
+      for await (const key of this.client.scanIterator({ MATCH: pattern, TYPE: 'string' })) {
+        if (typeof key === 'string') {
+          keys.push(key);
+        }
       }
 
       if (keys.length > 0) {
