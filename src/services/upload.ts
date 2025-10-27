@@ -230,11 +230,26 @@ export class UploadService {
   async getFileEntityKeys(file_id: string): Promise<{ metadata_key?: string; chunk_keys: string[] }> {
     await this.initialize();
 
+    // Try Redis cache first (fast)
+    if (this.sessionStore && this.sessionStore.isRedisConnected()) {
+      try {
+        const cachedKeys = await this.sessionStore.getFileEntityKeys(file_id);
+        if (cachedKeys) {
+          console.log(`✨ Retrieved entity keys from cache for file ${file_id}`);
+          return cachedKeys;
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to get entity keys from cache:', error);
+      }
+    }
+
+    // Fallback to blockchain query (slow)
     if (this.storage.getFileEntityKeys) {
+      console.log(`🔍 Querying blockchain for entity keys for file ${file_id}`);
       return await this.storage.getFileEntityKeys(file_id);
     }
 
-    // Fallback for in-memory storage
+    // Final fallback for in-memory storage
     return { chunk_keys: [] };
   }
 
@@ -325,6 +340,22 @@ export class UploadService {
           }
 
           if (allSuccess) {
+            // Extract and cache entity keys
+            const entityKeys = {
+              metadata_key: metadata.entity_key,
+              chunk_keys: chunks.map(c => c.entity_key).filter((k): k is string => k !== undefined)
+            };
+
+            // Save entity keys to Redis cache with 7 day TTL
+            if (this.sessionStore && this.sessionStore.isRedisConnected()) {
+              try {
+                await this.sessionStore.setFileEntityKeys(session.file_id, entityKeys, 7 * 24 * 3600);
+                console.log(`💾 Cached entity keys for file ${session.file_id}: metadata=${entityKeys.metadata_key}, chunks=${entityKeys.chunk_keys.length}`);
+              } catch (error) {
+                console.warn('⚠️ Failed to cache entity keys in Redis:', error);
+              }
+            }
+
             session.completed = true;
             session.status = UploadStatus.COMPLETED;
             console.log(`✅ Adaptive batch upload completed for file ${session.file_id} (${batchCount} batch transactions)`);
@@ -359,6 +390,22 @@ export class UploadService {
 
       // Upload metadata
       await this.storage.storeMetadata(metadata);
+
+      // Extract and cache entity keys
+      const entityKeys = {
+        metadata_key: metadata.entity_key,
+        chunk_keys: chunks.map(c => c.entity_key).filter((k): k is string => k !== undefined)
+      };
+
+      // Save entity keys to Redis cache with 7 day TTL
+      if (this.sessionStore && this.sessionStore.isRedisConnected()) {
+        try {
+          await this.sessionStore.setFileEntityKeys(session.file_id, entityKeys, 7 * 24 * 3600);
+          console.log(`💾 Cached entity keys for file ${session.file_id}: metadata=${entityKeys.metadata_key}, chunks=${entityKeys.chunk_keys.length}`);
+        } catch (error) {
+          console.warn('⚠️ Failed to cache entity keys in Redis:', error);
+        }
+      }
 
       // Mark as completed
       session.completed = true;

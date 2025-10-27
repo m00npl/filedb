@@ -240,4 +240,32 @@ export class RedisSessionStore {
       throw error;
     }
   }
+
+  async setFileEntityKeys(fileId: string, entityKeys: { metadata_key?: string; chunk_keys: string[] }, ttl?: number): Promise<void> {
+    try {
+      const key = `${this.config.keyPrefix}entity_keys:${fileId}`;
+      const data = JSON.stringify(entityKeys);
+      const expiry = ttl || this.config.defaultTTL;
+      await this.client.setEx(key, expiry, data);
+    } catch (error) {
+      console.error('❌ Error saving entity keys to Redis:', error);
+      throw error;
+    }
+  }
+
+  async getFileEntityKeys(fileId: string): Promise<{ metadata_key?: string; chunk_keys: string[] } | null> {
+    try {
+      const key = `${this.config.keyPrefix}entity_keys:${fileId}`;
+      const data = await this.client.get(key);
+
+      if (!data) {
+        return null;
+      }
+
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('❌ Error retrieving entity keys from Redis:', error);
+      return null;
+    }
+  }
 }
