@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/node';
-import { nodeProfilingIntegration } from '@sentry/profiling-node';
 
 export function initSentry() {
   const dsn = process.env.SENTRY_DSN;
@@ -15,13 +14,6 @@ export function initSentry() {
 
     // Performance Monitoring
     tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
-
-    // Profiling
-    profilesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
-
-    integrations: [
-      nodeProfilingIntegration(),
-    ],
 
     // Release tracking
     release: process.env.npm_package_version || '1.0.0',
