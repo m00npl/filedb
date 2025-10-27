@@ -1,3 +1,7 @@
+// Initialize Sentry first before any other imports
+import { initSentry, captureException } from './sentry';
+initSentry();
+
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import { UploadService } from './services/upload';
@@ -90,6 +94,7 @@ app.post('/files', optionalJwtAuthMiddleware, requirePermission(PERMISSIONS.UPLO
     });
   } catch (error) {
     console.error('Upload error:', error);
+    captureException(error, { context: 'file_upload' });
     return c.json({ error: 'Internal server error' }, 500);
   }
 });

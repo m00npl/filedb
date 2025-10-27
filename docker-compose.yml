@@ -26,6 +26,7 @@ services:
       - STORAGE_MODE=arkiv
       - BLOCKCHAIN_TIMEOUT=300000
       - REDIS_URL=redis://redis:6379
+      - SENTRY_DSN=http://00d4300393254eaf9a4df30cba2b7971@arkiv.network:8888/4
     secrets:
       - arkiv_private_key
     volumes:
