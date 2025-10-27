@@ -131,7 +131,13 @@ export class RedisSessionStore {
   async getAllSessions(): Promise<Map<string, UploadSession>> {
     try {
       const pattern = `${this.config.keyPrefix}*`;
-      const keys = await this.client.keys(pattern);
+      const keys: string[] = [];
+
+      // Use SCAN instead of KEYS to avoid blocking Redis
+      for await (const key of this.client.scanIterator({ MATCH: pattern })) {
+        keys.push(key);
+      }
+
       const sessions = new Map<string, UploadSession>();
 
       for (const key of keys) {
@@ -181,8 +187,14 @@ export class RedisSessionStore {
   async getSessionCount(): Promise<number> {
     try {
       const pattern = `${this.config.keyPrefix}*`;
-      const keys = await this.client.keys(pattern);
-      return keys.length;
+      let count = 0;
+
+      // Use SCAN instead of KEYS to avoid blocking Redis
+      for await (const key of this.client.scanIterator({ MATCH: pattern })) {
+        count++;
+      }
+
+      return count;
     } catch (error) {
       console.error('❌ Error getting session count from Redis:', error);
       return 0;
@@ -192,7 +204,12 @@ export class RedisSessionStore {
   async clearAllSessions(): Promise<void> {
     try {
       const pattern = `${this.config.keyPrefix}*`;
-      const keys = await this.client.keys(pattern);
+      const keys: string[] = [];
+
+      // Use SCAN instead of KEYS to avoid blocking Redis
+      for await (const key of this.client.scanIterator({ MATCH: pattern })) {
+        keys.push(key);
+      }
 
       if (keys.length > 0) {
         await this.client.del(keys);
