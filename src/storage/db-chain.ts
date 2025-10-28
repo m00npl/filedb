@@ -38,7 +38,7 @@ export class ArkivMemoryStorage {
     this.metadata.set(metadata.file_id, metadata);
   }
 
-  async getMetadata(file_id: string): Promise<FileMetadata | null> {
+  async getMetadata(file_id: string, _metadataEntityKey?: string): Promise<FileMetadata | null> {
     const meta = this.metadata.get(file_id);
 
     if (!meta) return null;
@@ -51,7 +51,7 @@ export class ArkivMemoryStorage {
     return meta;
   }
 
-  async getAllChunks(file_id: string): Promise<ChunkEntity[]> {
+  async getAllChunks(file_id: string, _chunkEntityKeys?: string[]): Promise<ChunkEntity[]> {
     const chunks: ChunkEntity[] = [];
     const meta = await this.getMetadata(file_id);
 

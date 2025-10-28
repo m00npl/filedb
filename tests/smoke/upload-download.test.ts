@@ -113,22 +113,38 @@ describe('Upload/Download Smoke Tests', () => {
     // Wait a bit for blockchain upload to complete
     await new Promise(resolve => setTimeout(resolve, 3000));
 
-    const response = await fetch(`${BASE_URL}/files/${fileId}/entities`, {
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-      },
-    });
+    let response;
+    let retries = 3;
 
-    expect(response.status).toBe(200);
+    // Retry a few times as blockchain upload is asynchronous
+    for (let i = 0; i < retries; i++) {
+      response = await fetch(`${BASE_URL}/files/${fileId}/entities`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
 
-    const data = await response.json();
+      if (response.status === 200) {
+        const data = await response.json();
+        const hasKeys = !!data.metadata_entity_key || (data.chunk_entity_keys && data.chunk_entity_keys.length > 0);
+        if (hasKeys) break;
+      }
+
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+    }
+
+    expect(response!.status).toBe(200);
+
+    const data = await response!.json();
     expect(data.file_id).toBe(fileId);
     expect(data.total_entities).toBeGreaterThan(0);
 
     // Should have metadata key or chunk keys
     const hasKeys = !!data.metadata_entity_key || (data.chunk_entity_keys && data.chunk_entity_keys.length > 0);
     expect(hasKeys).toBe(true);
-  }, { timeout: 10000 }); // Longer timeout for blockchain operations
+  }, { timeout: 30000 }); // Longer timeout for blockchain operations
 
   test('should get upload status', async () => {
     expect(fileId).toBeDefined();

@@ -119,12 +119,27 @@ export class UploadService {
   async getFile(file_id: string): Promise<{ success: boolean; buffer?: Buffer; metadata?: FileMetadata; error?: string }> {
     await this.initialize();
     try {
-      const metadata = await this.storage.getMetadata(file_id);
+      // Try to get entity keys from cache for faster retrieval
+      let entityKeys: { metadata_key?: string; chunk_keys: string[] } | null = null;
+      if (this.sessionStore && this.sessionStore.isRedisConnected()) {
+        try {
+          entityKeys = await this.sessionStore.getFileEntityKeys(file_id);
+          if (entityKeys) {
+            console.log(`✨ Using cached entity keys for fast retrieval of file ${file_id}`);
+          }
+        } catch (error) {
+          console.warn('⚠️  Failed to get entity keys from cache:', error);
+        }
+      }
+
+      // Get metadata (with entity key if available for fast path)
+      const metadata = await this.storage.getMetadata(file_id, entityKeys?.metadata_key);
       if (!metadata) {
         return { success: false, error: 'File not found or expired' };
       }
 
-      const chunks = await this.storage.getAllChunks(file_id);
+      // Get chunks (with entity keys if available for fast path)
+      const chunks = await this.storage.getAllChunks(file_id, entityKeys?.chunk_keys);
       if (chunks.length === 0) {
         return { success: false, error: 'File chunks not found or incomplete' };
       }

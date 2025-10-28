@@ -375,10 +375,27 @@ export class ArkivStorage {
     }
   }
 
-  async getMetadata(file_id: string): Promise<FileMetadata | null> {
+  async getMetadata(file_id: string, metadataEntityKey?: string): Promise<FileMetadata | null> {
     await this.initialize();
 
     try {
+      // Fast path: if we have the entity key, use it directly
+      if (metadataEntityKey) {
+        try {
+          const data = await this.roClient.getStorageValue(metadataEntityKey);
+          const metadataJson = JSON.parse(data.toString('utf-8'));
+
+          return {
+            ...metadataJson,
+            created_at: new Date(metadataJson.created_at),
+            entity_key: metadataEntityKey
+          };
+        } catch (error) {
+          console.warn(`⚠️  Failed to get metadata with entity key ${metadataEntityKey}, falling back to full scan`);
+        }
+      }
+
+      // Slow path: iterate through all entities
       const ownerAddress = this.writeClient
         ? await this.writeClient.getOwnerAddress()
         : null;
@@ -419,10 +436,40 @@ export class ArkivStorage {
     }
   }
 
-  async getAllChunks(file_id: string): Promise<ChunkEntity[]> {
+  async getAllChunks(file_id: string, chunkEntityKeys?: string[]): Promise<ChunkEntity[]> {
     await this.initialize();
 
     try {
+      // Fast path: if we have the entity keys, use them directly
+      if (chunkEntityKeys && chunkEntityKeys.length > 0) {
+        try {
+          const chunks: ChunkEntity[] = [];
+
+          for (let i = 0; i < chunkEntityKeys.length; i++) {
+            const entityKey = chunkEntityKeys[i];
+            const data = await this.roClient.getStorageValue(entityKey);
+            const metadata = await this.roClient.getEntityMetaData(entityKey);
+
+            chunks.push({
+              id: entityKey,
+              file_id,
+              chunk_index: i, // Use array index as chunk index
+              data: Buffer.from(data),
+              checksum: this.getAnnotationValue(metadata.stringAnnotations, 'checksum'),
+              created_at: new Date(this.getAnnotationValue(metadata.stringAnnotations, 'created_at')),
+              expiration_block: this.getAnnotationValue(metadata.numericAnnotations, 'expiration_block'),
+              entity_key: entityKey
+            });
+          }
+
+          // Already sorted by array order
+          return chunks;
+        } catch (error) {
+          console.warn(`⚠️  Failed to get chunks with entity keys, falling back to full scan`);
+        }
+      }
+
+      // Slow path: iterate through all entities
       const ownerAddress = this.writeClient
         ? await this.writeClient.getOwnerAddress()
         : null;
