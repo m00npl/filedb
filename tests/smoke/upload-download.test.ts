@@ -114,6 +114,7 @@ describe('Upload/Download Smoke Tests', () => {
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     let response;
+    let data;
     let retries = 3;
 
     // Retry a few times as blockchain upload is asynchronous
@@ -125,7 +126,7 @@ describe('Upload/Download Smoke Tests', () => {
       });
 
       if (response.status === 200) {
-        const data = await response.json();
+        data = await response.json();
         const hasKeys = !!data.metadata_entity_key || (data.chunk_entity_keys && data.chunk_entity_keys.length > 0);
         if (hasKeys) break;
       }
@@ -136,8 +137,7 @@ describe('Upload/Download Smoke Tests', () => {
     }
 
     expect(response!.status).toBe(200);
-
-    const data = await response!.json();
+    expect(data).toBeDefined();
     expect(data.file_id).toBe(fileId);
     expect(data.total_entities).toBeGreaterThan(0);
 
