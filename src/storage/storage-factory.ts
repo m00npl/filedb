@@ -16,6 +16,7 @@ export interface IStorage {
   getFileEntityKeys?(file_id: string): Promise<{ metadata_key?: string; chunk_keys: string[] }>;
   storeBatch?(metadata: any, chunks: any[]): Promise<{ metadata_key: string; chunk_keys: string[] }>;
   storeBatchChunks?(chunks: any[]): Promise<string[]>;
+  getAllMetadata(): Promise<any[]> | any[];
 }
 
 export class StorageFactory {

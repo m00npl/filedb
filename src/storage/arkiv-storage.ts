@@ -488,6 +488,10 @@ export class ArkivStorage {
     }
   }
 
+  getAllMetadata(): never {
+    throw new Error('Cannot get all metadata from blockchain storage - use getFilesByOwner instead');
+  }
+
   calculateExpirationBlock(btl_days: number): number {
     const currentBlock = Math.floor(Date.now() / 1000 / 2);
     const blocksPerDay = (24 * 60 * 60) / 2; // 43200 blocks per day

@@ -66,7 +66,11 @@ export class ArkivMemoryStorage {
     return chunks;
   }
 
-  private getCurrentBlock(): number {
+  getAllMetadata(): FileMetadata[] {
+    return Array.from(this.metadata.values());
+  }
+
+  getCurrentBlock(): number {
     return this.currentBlock;
   }
 

@@ -184,27 +184,21 @@ export class UploadService {
   }
 
   async getFilesByExtension(extension: string): Promise<FileMetadata[]> {
-    const allMetadata: FileMetadata[] = [];
+    const allMetadata = this.storage.getAllMetadata();
+    const metadataArray = Array.isArray(allMetadata) ? allMetadata : await allMetadata;
 
-    for (const [_, metadata] of this.storage['metadata']) {
-      if (metadata.file_extension === extension.toLowerCase()) {
-        allMetadata.push(metadata);
-      }
-    }
-
-    return allMetadata;
+    return metadataArray.filter(metadata =>
+      metadata.file_extension === extension.toLowerCase()
+    );
   }
 
   async getFilesByContentType(contentType: string): Promise<FileMetadata[]> {
-    const allMetadata: FileMetadata[] = [];
+    const allMetadata = this.storage.getAllMetadata();
+    const metadataArray = Array.isArray(allMetadata) ? allMetadata : await allMetadata;
 
-    for (const [_, metadata] of this.storage['metadata']) {
-      if (metadata.content_type === contentType) {
-        allMetadata.push(metadata);
-      }
-    }
-
-    return allMetadata;
+    return metadataArray.filter(metadata =>
+      metadata.content_type === contentType
+    );
   }
 
   async getFilesByOwner(owner: string): Promise<FileMetadata[]> {
@@ -216,15 +210,12 @@ export class UploadService {
     }
 
     // Fallback for in-memory storage
-    const allMetadata: FileMetadata[] = [];
+    const allMetadata = this.storage.getAllMetadata();
+    const metadataArray = Array.isArray(allMetadata) ? allMetadata : await allMetadata;
 
-    for (const [_, metadata] of this.storage['metadata'] || []) {
-      if (metadata.owner === owner) {
-        allMetadata.push(metadata);
-      }
-    }
-
-    return allMetadata;
+    return metadataArray.filter(metadata =>
+      metadata.owner === owner
+    );
   }
 
   async getFileEntityKeys(file_id: string): Promise<{ metadata_key?: string; chunk_keys: string[] }> {
