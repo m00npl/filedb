@@ -268,4 +268,34 @@ export class RedisSessionStore {
       return null;
     }
   }
+
+  // Generic cache methods for quota and other services
+  async getSessionData(key: string): Promise<string | null> {
+    try {
+      return await this.client.get(key);
+    } catch (error) {
+      console.error(`❌ Error getting data for ${key}:`, error);
+      return null;
+    }
+  }
+
+  async storeSessionData(key: string, value: string, ttl?: number): Promise<void> {
+    try {
+      if (ttl) {
+        await this.client.setEx(key, ttl, value);
+      } else {
+        await this.client.set(key, value);
+      }
+    } catch (error) {
+      console.error(`❌ Error storing data for ${key}:`, error);
+    }
+  }
+
+  async deleteSessionData(key: string): Promise<void> {
+    try {
+      await this.client.del(key);
+    } catch (error) {
+      console.error(`❌ Error deleting data for ${key}:`, error);
+    }
+  }
 }
