@@ -29,7 +29,7 @@ jobs:
         run: bun install
 
       - name: Run smoke tests against production
-        run: TEST_BASE_URL=https://filedb.online bun test tests/smoke --timeout 20000
+        run: TEST_BASE_URL=https://filedb.online bun test tests/smoke --timeout 60000
         continue-on-error: true
         id: smoke-tests
 

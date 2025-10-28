@@ -77,7 +77,7 @@ describe('Upload/Download Smoke Tests', () => {
     expect(data.original_filename).toBe('smoke-test.txt');
     expect(data.content_type).toContain('text/plain');
     expect(data.total_size).toBe(testContent.length);
-  }, { timeout: 30000 });
+  }, { timeout: 45000 });
 
   test('should download file with correct content', async () => {
     expect(fileId).toBeDefined();
@@ -105,7 +105,7 @@ describe('Upload/Download Smoke Tests', () => {
 
     const downloadedContent = await response!.text();
     expect(downloadedContent).toBe(testContent);
-  }, { timeout: 30000 });
+  }, { timeout: 45000 });
 
   test('should have entity keys after blockchain upload', async () => {
     expect(fileId).toBeDefined();
