@@ -7,7 +7,10 @@
     "dev": "bun run --hot src/server.ts",
     "build": "bun build src/server.ts --outdir=dist --target=bun",
     "start": "bun run dist/server.js",
-    "test": "bun test"
+    "test": "bun test",
+    "test:smoke": "bun test tests/smoke",
+    "test:smoke:local": "TEST_BASE_URL=http://localhost:3003 bun test tests/smoke",
+    "test:smoke:production": "TEST_BASE_URL=https://filedb.online bun test tests/smoke"
   },
   "dependencies": {
     "@hono/node-server": "^1.12.0",
