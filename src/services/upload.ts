@@ -135,14 +135,28 @@ export class UploadService {
         }
       }
 
+      // Add timeout to blockchain queries (5 seconds max)
+      const timeout = 5000;
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Blockchain query timed out')), timeout);
+      });
+
       // Get metadata (with entity key if available for fast path)
-      const metadata = await this.storage.getMetadata(file_id, entityKeys?.metadata_key);
+      const metadata = await Promise.race([
+        this.storage.getMetadata(file_id, entityKeys?.metadata_key),
+        timeoutPromise
+      ]) as any;
+
       if (!metadata) {
         return { success: false, error: 'File not found or expired' };
       }
 
-      // Get chunks (with entity keys if available for fast path)
-      const chunks = await this.storage.getAllChunks(file_id, entityKeys?.chunk_keys);
+      // Get chunks (with entity key if available for fast path)
+      const chunks = await Promise.race([
+        this.storage.getAllChunks(file_id, entityKeys?.chunk_keys),
+        timeoutPromise
+      ]) as any;
+
       if (chunks.length === 0) {
         return { success: false, error: 'File chunks not found or incomplete' };
       }
@@ -264,10 +278,24 @@ export class UploadService {
       }
     }
 
-    // Fallback to blockchain query (slow)
+    // Fallback to blockchain query (slow) with timeout
     if (this.storage.getFileEntityKeys) {
       console.log(`🔍 Querying blockchain for entity keys for file ${file_id}`);
-      return await this.storage.getFileEntityKeys(file_id);
+
+      const timeout = 5000;
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Blockchain entity keys query timed out')), timeout);
+      });
+
+      try {
+        return await Promise.race([
+          this.storage.getFileEntityKeys(file_id),
+          timeoutPromise
+        ]) as any;
+      } catch (error) {
+        console.warn(`⚠️ Blockchain entity keys query timed out for file ${file_id}`);
+        return { chunk_keys: [] };
+      }
     }
 
     // Final fallback for in-memory storage
