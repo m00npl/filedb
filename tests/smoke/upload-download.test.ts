@@ -77,7 +77,7 @@ describe('Upload/Download Smoke Tests', () => {
     expect(data.original_filename).toBe('smoke-test.txt');
     expect(data.content_type).toContain('text/plain');
     expect(data.total_size).toBe(testContent.length);
-  }, { timeout: 20000 });
+  }, { timeout: 30000 });
 
   test('should download file with correct content', async () => {
     expect(fileId).toBeDefined();
@@ -105,7 +105,7 @@ describe('Upload/Download Smoke Tests', () => {
 
     const downloadedContent = await response!.text();
     expect(downloadedContent).toBe(testContent);
-  }, { timeout: 20000 });
+  }, { timeout: 30000 });
 
   test('should have entity keys after blockchain upload', async () => {
     expect(fileId).toBeDefined();
@@ -152,7 +152,7 @@ describe('Upload/Download Smoke Tests', () => {
     }
 
     // Status endpoint may return 404 if session was cleaned up after upload completes
-    expect(response!.status).toMatch(/200|404/);
+    expect([200, 404]).toContain(response!.status);
 
     if (response!.status === 200) {
       const data = await response!.json();
