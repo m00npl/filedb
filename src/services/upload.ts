@@ -103,8 +103,11 @@ export class UploadService {
       this.uploadSessions.set(idempotencyKey, session);
     }
 
-    // Update quota immediately since we accepted the file
-    await this.quotaService.updateUsage(userId, fileBuffer.length);
+    // Update quota asynchronously (don't block response)
+    this.quotaService.updateUsage(userId, fileBuffer.length).catch(error => {
+      console.error(`⚠️ Failed to update quota for user ${userId}:`, error);
+      // Quota update failure is not critical - the file was already accepted
+    });
 
     // Start asynchronous blockchain upload (don't wait for it)
     this.uploadToBlockchainAsync(chunks, metadata, session).catch(error => {

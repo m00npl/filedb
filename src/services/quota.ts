@@ -59,25 +59,41 @@ export class QuotaService {
   }
 
   async updateUsage(userId: string, fileSize: number): Promise<void> {
-    if (this.storage && this.storage.updateUserQuota) {
-      // Use blockchain-based quota tracking
-      await this.storage.updateUserQuota(userId, fileSize);
+    // Always update in-memory first for immediate consistency
+    const quota = this.userUsage.get(userId) || {
+      used_bytes: 0,
+      max_bytes: CONFIG.FREE_TIER_MAX_BYTES,
+      uploads_today: 0,
+      max_uploads_per_day: CONFIG.FREE_TIER_MAX_UPLOADS_PER_DAY
+    };
+    quota.used_bytes += fileSize;
+    quota.uploads_today += 1;
+    this.userUsage.set(userId, quota);
 
-      // Invalidate cache after update
-      if (this.cacheInitialized) {
-        try {
-          await this.redisCache.deleteSessionData(`quota:${userId}`);
-          console.log(`🗑️ Invalidated quota cache for user ${userId}`);
-        } catch (error) {
-          console.warn('Failed to invalidate quota cache:', error.message);
-        }
+    // Update cache
+    if (this.cacheInitialized) {
+      try {
+        await this.redisCache.storeSessionData(`quota:${userId}`, JSON.stringify(quota), 600);
+        console.log(`💾 Updated quota cache for user ${userId}`);
+      } catch (error) {
+        console.warn('Failed to update quota cache:', error.message);
       }
-    } else {
-      // Fallback to in-memory tracking
-      const quota = await this.getUserQuota(userId);
-      quota.used_bytes += fileSize;
-      quota.uploads_today += 1;
-      this.userUsage.set(userId, quota);
+    }
+
+    // Update blockchain asynchronously (with timeout to prevent hanging)
+    if (this.storage && this.storage.updateUserQuota) {
+      const timeoutMs = 30000; // 30 second timeout
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Blockchain quota update timed out')), timeoutMs);
+      });
+
+      Promise.race([
+        this.storage.updateUserQuota(userId, fileSize),
+        timeoutPromise
+      ]).catch(error => {
+        console.warn(`⚠️ Blockchain quota update failed for user ${userId}:`, error.message);
+        // Non-critical: cache and in-memory are already updated
+      });
     }
   }
 
