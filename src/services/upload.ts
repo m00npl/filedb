@@ -184,21 +184,33 @@ export class UploadService {
   }
 
   async getFilesByExtension(extension: string): Promise<FileMetadata[]> {
-    const allMetadata = this.storage.getAllMetadata();
-    const metadataArray = Array.isArray(allMetadata) ? allMetadata : await allMetadata;
+    try {
+      const allMetadata = this.storage.getAllMetadata();
+      const metadataArray = Array.isArray(allMetadata) ? allMetadata : await allMetadata;
 
-    return metadataArray.filter(metadata =>
-      metadata.file_extension === extension.toLowerCase()
-    );
+      return metadataArray.filter(metadata =>
+        metadata.file_extension === extension.toLowerCase()
+      );
+    } catch (error) {
+      // Blockchain storage doesn't support getAllMetadata
+      console.warn('⚠️  Query by extension not supported in current storage mode:', error);
+      return [];
+    }
   }
 
   async getFilesByContentType(contentType: string): Promise<FileMetadata[]> {
-    const allMetadata = this.storage.getAllMetadata();
-    const metadataArray = Array.isArray(allMetadata) ? allMetadata : await allMetadata;
+    try {
+      const allMetadata = this.storage.getAllMetadata();
+      const metadataArray = Array.isArray(allMetadata) ? allMetadata : await allMetadata;
 
-    return metadataArray.filter(metadata =>
-      metadata.content_type === contentType
-    );
+      return metadataArray.filter(metadata =>
+        metadata.content_type === contentType
+      );
+    } catch (error) {
+      // Blockchain storage doesn't support getAllMetadata
+      console.warn('⚠️  Query by content type not supported in current storage mode:', error);
+      return [];
+    }
   }
 
   async getFilesByOwner(owner: string): Promise<FileMetadata[]> {

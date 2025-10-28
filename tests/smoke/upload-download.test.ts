@@ -49,36 +49,63 @@ describe('Upload/Download Smoke Tests', () => {
   test('should get file info', async () => {
     expect(fileId).toBeDefined();
 
-    const response = await fetch(`${BASE_URL}/files/${fileId}/info`, {
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-      },
-    });
+    // Wait a bit for blockchain upload to complete
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-    expect(response.status).toBe(200);
+    let response;
+    let retries = 3;
 
-    const data = await response.json();
+    // Retry a few times as blockchain upload is asynchronous
+    for (let i = 0; i < retries; i++) {
+      response = await fetch(`${BASE_URL}/files/${fileId}/info`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      if (response.status === 200) break;
+
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
+
+    expect(response!.status).toBe(200);
+
+    const data = await response!.json();
     expect(data.file_id).toBe(fileId);
     expect(data.original_filename).toBe('smoke-test.txt');
     expect(data.content_type).toBe('text/plain');
     expect(data.total_size).toBe(testContent.length);
-  }, { timeout: 15000 });
+  }, { timeout: 20000 });
 
   test('should download file with correct content', async () => {
     expect(fileId).toBeDefined();
 
-    const response = await fetch(`${BASE_URL}/files/${fileId}`, {
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-      },
-    });
+    let response;
+    let retries = 3;
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get('Content-Type')).toContain('text/plain');
+    // Retry a few times as blockchain upload is asynchronous
+    for (let i = 0; i < retries; i++) {
+      response = await fetch(`${BASE_URL}/files/${fileId}`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
 
-    const downloadedContent = await response.text();
+      if (response.status === 200) break;
+
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
+
+    expect(response!.status).toBe(200);
+    expect(response!.headers.get('Content-Type')).toContain('text/plain');
+
+    const downloadedContent = await response!.text();
     expect(downloadedContent).toBe(testContent);
-  }, { timeout: 15000 });
+  }, { timeout: 20000 });
 
   test('should have entity keys after blockchain upload', async () => {
     expect(fileId).toBeDefined();
@@ -106,18 +133,30 @@ describe('Upload/Download Smoke Tests', () => {
   test('should get upload status', async () => {
     expect(fileId).toBeDefined();
 
-    const response = await fetch(`${BASE_URL}/files/${fileId}/status`, {
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-      },
-    });
+    let response;
+    let retries = 3;
 
-    expect(response.status).toBe(200);
+    // Retry a few times as blockchain upload is asynchronous
+    for (let i = 0; i < retries; i++) {
+      response = await fetch(`${BASE_URL}/files/${fileId}/status`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
 
-    const data = await response.json();
+      if (response.status === 200) break;
+
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
+
+    expect(response!.status).toBe(200);
+
+    const data = await response!.json();
     expect(data.file_id).toBe(fileId);
     expect(data.status).toMatch(/uploading|completed/);
-  }, { timeout: 15000 });
+  }, { timeout: 20000 });
 
   test('should update quota after upload', async () => {
     const response = await fetch(`${BASE_URL}/quota`, {
