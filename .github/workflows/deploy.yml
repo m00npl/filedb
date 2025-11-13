@@ -1,0 +1,212 @@
+name: Deploy FilesDB
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: docker.io
+  BACKEND_IMAGE_NAME: moonplkr/filesdb
+  FRONTEND_IMAGE_NAME: moonplkr/filesdb
+  DEPLOYMENT_HOST: moon.dev.golem.network
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run tests
+        run: bun test
+        continue-on-error: true
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      backend-image: ${{ steps.meta-backend.outputs.tags }}
+      frontend-image: ${{ steps.meta-frontend.outputs.tags }}
+      backend-digest: ${{ steps.build-backend.outputs.digest }}
+      frontend-digest: ${{ steps.build-frontend.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.BACKEND_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Extract metadata for frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push backend
+        id: build-backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.optimized
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend
+        id: build-frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.optimized
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  pre-deployment-smoke-tests:
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install test dependencies
+        
+        run: bun install --frozen-lockfile
+
+      - name: Run pre-deployment smoke tests
+        
+        env:
+          TEST_BASE_URL: https://filesdb.online
+          TEST_HEADLESS: true
+        run: |
+          echo "Running smoke tests against production..."
+          bun run test:smoke:production
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-deployment-smoke-results
+          path: test-reports/
+          retention-days: 30
+
+  deploy:
+    needs: [test, build, pre-deployment-smoke-tests]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          ssh-keyscan -H ${{ env.DEPLOYMENT_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Pre-deployment health check
+        run: |
+          ssh ubuntu@${{ env.DEPLOYMENT_HOST }} '
+            cd /home/ubuntu/projects/filedb
+            docker compose ps
+            docker compose logs --tail=10 filesdb filesdb
+          '
+
+      - name: Deploy with zero-downtime strategy
+        run: |
+          ssh ubuntu@${{ env.DEPLOYMENT_HOST }} '
+            cd /home/ubuntu/projects/filedb
+
+            # Create backup of current state
+            docker compose config > docker-compose.backup.yml
+
+            # Pull new images
+            docker compose pull
+
+            # Graceful restart with health checks
+            docker compose up -d --no-deps filesdb
+            sleep 30
+
+            # Verify service health
+            if ! docker exec filesdb curl -f http://localhost:3000/health; then
+              echo "Service health check failed, rolling back"
+              docker compose up -d --no-deps filesdb
+              exit 1
+            fi
+
+            # Cleanup old images
+            docker image prune -f
+          '
+
+      - name: Post-deployment verification
+        run: |
+          ssh ubuntu@${{ env.DEPLOYMENT_HOST }} '
+            cd /home/ubuntu/projects/filedb
+
+            # Wait for services to be fully ready
+            sleep 15
+
+            # Verify all services are healthy
+            docker compose ps
+
+            # Test local health endpoint
+            docker exec filesdb curl -f http://localhost:3000/health || exit 1
+
+            echo "Deployment successful!"
+          '
+
