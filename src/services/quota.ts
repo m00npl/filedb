@@ -7,6 +7,7 @@ export class QuotaService {
   private storage: IStorage | null = null;
   private redisCache: RedisSessionStore;
   private cacheInitialized = false;
+  private lastResetDate: Map<string, string> = new Map();
 
   constructor(storage?: IStorage) {
     this.storage = storage || null;
@@ -30,13 +31,48 @@ export class QuotaService {
 
   hasUnlimitedAccess(request: any): boolean {
     const apiKey = request.headers?.['x-api-key'];
-    return CONFIG.UNLIMITED_API_KEY && apiKey === CONFIG.UNLIMITED_API_KEY;
+    return !!(CONFIG.UNLIMITED_API_KEY && apiKey === CONFIG.UNLIMITED_API_KEY);
+  }
+
+  private shouldResetQuota(userId: string): boolean {
+    const today = new Date().toISOString().split('T')[0];
+    const lastReset = this.lastResetDate.get(userId);
+    
+    if (!lastReset || lastReset !== today) {
+      this.lastResetDate.set(userId, today);
+      return lastReset !== undefined && lastReset !== today;
+    }
+    
+    return false;
+  }
+
+  private resetQuota(userId: string): void {
+    const quota = this.userUsage.get(userId);
+    if (quota) {
+      quota.uploads_today = 0;
+      // Note: used_bytes accumulates, only uploads_today resets daily
+      this.userUsage.set(userId, quota);
+      console.log(`🔄 Reset daily quota for user ${userId}`);
+    }
   }
 
   async checkQuota(userId: string, fileSize: number, request?: any): Promise<{ allowed: boolean; reason?: string }> {
     // Check unlimited access first
     if (request && this.hasUnlimitedAccess(request)) {
       return { allowed: true };
+    }
+
+    // Reset quota if date has changed
+    if (this.shouldResetQuota(userId)) {
+      this.resetQuota(userId);
+      // Clear cache to force fresh read
+      if (this.cacheInitialized) {
+        try {
+          await this.redisCache.deleteSessionData(`quota:${userId}`);
+        } catch (error) {
+          console.warn('Failed to clear quota cache during reset');
+        }
+      }
     }
 
     const quota = await this.getUserQuota(userId);

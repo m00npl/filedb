@@ -2,7 +2,7 @@ import { StorageFactory, IStorage } from '../storage/storage-factory';
 import { ChunkingService } from './chunking';
 import { QuotaService } from './quota';
 import { RedisSessionStore } from './redis-session-store';
-import { CONFIG, UploadSession, FileMetadata, UploadStatus } from '../types';
+import { CONFIG, UploadSession, FileMetadata, UploadStatus, ChunkEntity } from '../types';
 
 export class UploadService {
   private storage!: IStorage;
@@ -303,7 +303,7 @@ export class UploadService {
   }
 
   private async uploadToBlockchainAsync(
-    chunks: any[],
+    chunks: ChunkEntity[],
     metadata: FileMetadata,
     session: UploadSession
   ): Promise<void> {

@@ -1,8 +1,12 @@
-import { createArkivClient, createArkivROClient } from 'arkiv-sdk-js';
+import type { PublicArkivClient, WalletArkivClient } from '@arkiv-network/sdk';
+import { createPublicClient, createWalletClient, defineChain, http } from '@arkiv-network/sdk';
+import { privateKeyToAccount } from '@arkiv-network/sdk/accounts';
+import { kaolin, localhost, marketplace, mendoza } from '@arkiv-network/sdk/chains';
+import type { Chain, Hex } from 'viem';
 
 export interface PooledConnection {
   id: string;
-  client: any;
+  client: PublicArkivClient | WalletArkivClient;
   isWriteClient: boolean;
   isActive: boolean;
   lastUsed: Date;
@@ -35,6 +39,8 @@ export class ArkivDBConnectionPool {
     retryAttempts: 3,
     connectionTimeout: 30000 // 30 seconds
   };
+  private chain: Chain;
+  private walletAccount?: ReturnType<typeof privateKeyToAccount>;
 
   constructor(
     private chainId: number,
@@ -44,6 +50,10 @@ export class ArkivDBConnectionPool {
     config?: Partial<ConnectionPoolConfig>
   ) {
     this.config = { ...this.config, ...config };
+    this.chain = this.resolveChain(chainId, rpcUrl, wsUrl);
+    if (this.privateKey) {
+      this.walletAccount = privateKeyToAccount(this.ensureHexPrefix(this.privateKey) as Hex);
+    }
     this.startHealthCheck();
   }
 
@@ -56,7 +66,7 @@ export class ArkivDBConnectionPool {
     );
 
     // Create initial write connections if private key available
-    const writePromises = this.privateKey
+  const writePromises = this.walletAccount
       ? Array.from({ length: Math.min(1, this.config.maxWriteConnections) }, () =>
           this.createWriteConnection()
         )
@@ -72,7 +82,7 @@ export class ArkivDBConnectionPool {
       throw new Error('Connection pool is shutdown');
     }
 
-    if (!this.privateKey) {
+    if (!this.walletAccount) {
       throw new Error('Write operations not available - no private key configured');
     }
 
@@ -134,19 +144,19 @@ export class ArkivDBConnectionPool {
     }
   }
 
-  async executeWithWriteConnection<T>(operation: (client: any) => Promise<T>): Promise<T> {
+  async executeWithWriteConnection<T>(operation: (client: WalletArkivClient) => Promise<T>): Promise<T> {
     const connection = await this.getWriteConnection();
     try {
-      return await this.executeWithRetry(() => operation(connection.client));
+      return await this.executeWithRetry(() => operation(connection.client as WalletArkivClient));
     } finally {
       this.releaseConnection(connection);
     }
   }
 
-  async executeWithReadConnection<T>(operation: (client: any) => Promise<T>): Promise<T> {
+  async executeWithReadConnection<T>(operation: (client: PublicArkivClient) => Promise<T>): Promise<T> {
     const connection = await this.getReadConnection();
     try {
-      return await this.executeWithRetry(() => operation(connection.client));
+      return await this.executeWithRetry(() => operation(connection.client as PublicArkivClient));
     } finally {
       this.releaseConnection(connection);
     }
@@ -175,25 +185,25 @@ export class ArkivDBConnectionPool {
   }
 
   private async createWriteConnection(): Promise<PooledConnection> {
-    if (!this.privateKey) {
-      throw new Error('Cannot create write connection without private key');
+    if (!this.walletAccount) {
+      throw new Error('Cannot create write connection without wallet account');
     }
 
     const id = `write-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     try {
-      const hexKey = this.privateKey.replace('0x', '');
-      const accountData = {
-        tag: 'privatekey',
-        data: Buffer.from(hexKey, 'hex')
-      };
+      const clientPromise = Promise.resolve().then(() =>
+        createWalletClient({
+          chain: this.chain,
+          transport: http(this.rpcUrl),
+          account: this.walletAccount!
+        })
+      );
+      const timeoutPromise = new Promise<WalletArkivClient>((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timeout')), this.config.connectionTimeout)
+      );
 
-      const client = await Promise.race([
-        createArkivClient(this.chainId, accountData, this.rpcUrl, this.wsUrl),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Connection timeout')), this.config.connectionTimeout)
-        )
-      ]);
+      const client = await Promise.race([clientPromise, timeoutPromise]);
 
       const connection: PooledConnection = {
         id,
@@ -219,12 +229,17 @@ export class ArkivDBConnectionPool {
     const id = `read-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     try {
-      const client = await Promise.race([
-        createArkivROClient(this.chainId, this.rpcUrl, this.wsUrl),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Connection timeout')), this.config.connectionTimeout)
-        )
-      ]);
+      const clientPromise = Promise.resolve().then(() =>
+        createPublicClient({
+          chain: this.chain,
+          transport: http(this.rpcUrl)
+        })
+      );
+      const timeoutPromise = new Promise<PublicArkivClient>((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timeout')), this.config.connectionTimeout)
+      );
+
+      const client = await Promise.race([clientPromise, timeoutPromise]);
 
       const connection: PooledConnection = {
         id,
@@ -295,6 +310,49 @@ export class ArkivDBConnectionPool {
     } catch (error) {
       console.error(`❌ Error closing connection ${connection.id}:`, error);
     }
+  }
+
+  private resolveChain(chainId: number, rpcUrl: string, wsUrl?: string): Chain {
+    const predefined = this.getPredefinedChain(chainId);
+    if (predefined) {
+      return predefined;
+    }
+
+    const httpUrls = [rpcUrl] as const;
+    const webSocketUrls = wsUrl ? ([wsUrl] as const) : undefined;
+
+    return defineChain({
+      id: chainId,
+      name: `arkiv-${chainId}`,
+      network: `arkiv-${chainId}`,
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: {
+          http: httpUrls,
+          webSocket: webSocketUrls
+        }
+      },
+      testnet: true
+    });
+  }
+
+  private getPredefinedChain(chainId: number): Chain | undefined {
+    switch (chainId) {
+      case kaolin.id:
+        return kaolin;
+      case marketplace.id:
+        return marketplace;
+      case mendoza.id:
+        return mendoza;
+      case localhost.id:
+        return localhost;
+      default:
+        return undefined;
+    }
+  }
+
+  private ensureHexPrefix(value: string): string {
+    return value.startsWith('0x') ? value : `0x${value}`;
   }
 
   getPoolStats() {

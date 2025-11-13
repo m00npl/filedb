@@ -74,17 +74,13 @@ class FileDBDemo {
       this.currentFileId = result.file_id;
       this.currentFileName = file.name;
 
-      // Get file info to verify upload
-      const fileInfo = await this.client.getInfo(result.file_id);
-
-      // Calculate chunk count (approximate)
-      const chunkSize = 16 * 1024; // 16KB chunks
-      const chunkCount = Math.ceil(file.size / chunkSize);
+      // Get file info to verify upload (retry for up to 1 minute)
+      const fileInfo = await this.getFileInfoWithRetry(result.file_id, 60000, 2000);
 
       this.showSuccess({
         fileId: result.file_id,
         fileSize: this.formatFileSize(file.size),
-        chunkCount: chunkCount,
+        chunkCount: fileInfo.chunk_count,
         fileType: file.type || 'application/octet-stream',
         originalFile: file,
         fileInfo: fileInfo
@@ -93,6 +89,33 @@ class FileDBDemo {
     } catch (error) {
       this.showError(error.message);
     }
+  }
+
+  async getFileInfoWithRetry(fileId, maxDuration = 60000, interval = 2000) {
+    const startTime = Date.now();
+    const maxRetries = Math.floor(maxDuration / interval);
+
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+
+      const tryGetInfo = async () => {
+        try {
+          const fileInfo = await this.client.getInfo(fileId);
+          resolve(fileInfo);
+        } catch (error) {
+          attempts++;
+          const elapsed = Date.now() - startTime;
+
+          if (elapsed >= maxDuration || attempts >= maxRetries) {
+            reject(new Error(`Failed to get file info after ${attempts} attempts: ${error.message}`));
+          } else {
+            setTimeout(tryGetInfo, interval);
+          }
+        }
+      };
+
+      tryGetInfo();
+    });
   }
 
   async handleDownload() {
