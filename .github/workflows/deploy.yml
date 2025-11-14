@@ -164,7 +164,7 @@ jobs:
           ssh ubuntu@${{ env.DEPLOYMENT_HOST }} '
             cd /home/ubuntu/projects/filedb
             docker compose ps
-            docker compose logs --tail=10 filesdb filesdb
+            docker compose logs --tail=10 filesdb
           '
 
       - name: Deploy with zero-downtime strategy
@@ -182,8 +182,9 @@ jobs:
             docker compose up -d --no-deps filesdb
             sleep 30
 
-            # Verify service health
-            if ! docker exec filesdb curl -f http://localhost:3000/health; then
+            # Get container name and verify health
+            CONTAINER_NAME=$(docker compose ps filesdb --format json | jq -r ".[0].Name")
+            if ! docker exec $CONTAINER_NAME curl -f http://localhost:3000/health; then
               echo "Service health check failed, rolling back"
               docker compose up -d --no-deps filesdb
               exit 1
@@ -204,8 +205,9 @@ jobs:
             # Verify all services are healthy
             docker compose ps
 
-            # Test local health endpoint
-            docker exec filesdb curl -f http://localhost:3000/health || exit 1
+            # Test local health endpoint using actual container name
+            CONTAINER_NAME=$(docker compose ps filesdb --format json | jq -r ".[0].Name")
+            docker exec $CONTAINER_NAME curl -f http://localhost:3000/health || exit 1
 
             echo "Deployment successful!"
           '
