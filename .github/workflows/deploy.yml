@@ -183,7 +183,7 @@ jobs:
             sleep 30
 
             # Get container name and verify health
-            CONTAINER_NAME=$(docker compose ps filesdb --format json | jq -r ".[0].Name")
+            CONTAINER_NAME=$(docker compose ps filesdb --format '{{.Name}}')
             if ! docker exec $CONTAINER_NAME curl -f http://localhost:3000/health; then
               echo "Service health check failed, rolling back"
               docker compose up -d --no-deps filesdb
@@ -206,7 +206,7 @@ jobs:
             docker compose ps
 
             # Test local health endpoint using actual container name
-            CONTAINER_NAME=$(docker compose ps filesdb --format json | jq -r ".[0].Name")
+            CONTAINER_NAME=$(docker compose ps filesdb --format '{{.Name}}')
             docker exec $CONTAINER_NAME curl -f http://localhost:3000/health || exit 1
 
             echo "Deployment successful!"
