@@ -1,30 +1,38 @@
-import { describe, test, expect } from 'bun:test';
+import { beforeAll, describe, expect, test } from "bun:test"
+import { getTestBaseUrl, startTestServer } from "../setup"
 
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3003';
+const BASE_URL = getTestBaseUrl()
 
-describe('Health Check Smoke Tests', () => {
-  test('should return healthy status', async () => {
-    const response = await fetch(`${BASE_URL}/health`);
+describe("Health Check Smoke Tests", () => {
+  beforeAll(async () => {
+    // Start test server if TEST_BASE_URL is not set
+    if (!process.env.TEST_BASE_URL) {
+      await startTestServer()
+    }
+  })
 
-    expect(response.status).toBe(200);
+  test("should return healthy status", async () => {
+    const response = await fetch(`${BASE_URL}/health`)
 
-    const data = await response.json();
-    expect(data.status).toBe('healthy');
-    expect(data.services).toBeDefined();
-    expect(data.timestamp).toBeDefined();
-  });
+    expect(response.status).toBe(200)
 
-  test('should have Redis connection', async () => {
-    const response = await fetch(`${BASE_URL}/health`);
-    const data = await response.json();
+    const data = await response.json() as any
+    expect(data.status).toBe("healthy")
+    expect(data.services).toBeDefined()
+    expect(data.timestamp).toBeDefined()
+  })
 
-    expect(data.services.redis).toMatch(/connected|unknown/);
-  });
+  test("should have Redis connection", async () => {
+    const response = await fetch(`${BASE_URL}/health`)
+    const data = await response.json() as any
 
-  test('should have database connection', async () => {
-    const response = await fetch(`${BASE_URL}/health`);
-    const data = await response.json();
+    expect(data.services.redis).toMatch(/connected|unknown/)
+  })
 
-    expect(data.services.database).toBe('connected');
-  });
-});
+  test("should have database connection", async () => {
+    const response = await fetch(`${BASE_URL}/health`)
+    const data = await response.json() as any
+
+    expect(data.services.database).toBe("connected")
+  })
+})
