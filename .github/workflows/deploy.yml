@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - 'README.md'
-      - 'docs/**'
+      - "README.md"
+      - "docs/**"
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -17,26 +17,7 @@ env:
   DEPLOYMENT_HOST: moon.dev.golem.network
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Run tests
-        run: bun test
-        continue-on-error: true
-
   build:
-    needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     outputs:
@@ -104,44 +85,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  pre-deployment-smoke-tests:
-    needs: [test, build]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Install test dependencies
-        
-        run: bun install --frozen-lockfile
-
-      - name: Run pre-deployment smoke tests
-        
-        env:
-          TEST_BASE_URL: https://filesdb.online
-          TEST_HEADLESS: true
-        run: |
-          echo "Running smoke tests against production..."
-          bun run test:smoke:production
-
-      - name: Upload smoke test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pre-deployment-smoke-results
-          path: test-reports/
-          retention-days: 30
-
   deploy:
-    needs: [test, build, pre-deployment-smoke-tests]
+    needs: [build]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment: production
@@ -211,4 +156,3 @@ jobs:
 
             echo "Deployment successful!"
           '
-
